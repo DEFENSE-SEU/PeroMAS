@@ -330,6 +330,53 @@ FINAL_STATUS: [CONTINUE] or FINAL_STATUS: [FINISHED]
         
         return "\n".join(insights)
 
+    def _format_literature_evidence(self, literature_refs: list[dict]) -> str:
+        """Format literature references for final conclusion."""
+        if not literature_refs:
+            return ""
+        
+        lines = []
+        seen_papers = set()  # Deduplicate
+        
+        for ref in literature_refs:
+            paper_id = ref.get("paper_id", "Unknown")
+            if paper_id in seen_papers:
+                continue
+            seen_papers.add(paper_id)
+            
+            title = ref.get("title", "Unknown Title")
+            key_findings = ref.get("key_findings", [])
+            metrics = ref.get("performance_metrics", {})
+            materials = ref.get("materials", {})
+            
+            paper_entry = f"- **[{paper_id}]** {title}"
+            
+            # Add key findings if available
+            if key_findings:
+                if isinstance(key_findings, list):
+                    findings_str = "; ".join(str(f) for f in key_findings[:3])
+                else:
+                    findings_str = str(key_findings)[:200]
+                paper_entry += f"\n  - Key Findings: {findings_str}"
+            
+            # Add performance metrics if available
+            if metrics and isinstance(metrics, dict):
+                pce = metrics.get("PCE")
+                if pce:
+                    paper_entry += f"\n  - Reported PCE: {pce}%"
+            
+            # Add materials info if available
+            if materials and isinstance(materials, dict):
+                comp = materials.get("composition", "")
+                if comp:
+                    paper_entry += f"\n  - Composition: {comp}"
+            
+            lines.append(paper_entry)
+        
+        if lines:
+            return f"**{len(seen_papers)} papers analyzed:**\n" + "\n".join(lines)
+        return ""
+
     def _check_if_finished(self, response: str) -> bool:
         """
         Robust check for finish signal using Regex.
@@ -362,6 +409,10 @@ FINAL_STATUS: [CONTINUE] or FINAL_STATUS: [FINISHED]
         best_protocol = ""
         best_precursors = ""
         
+        # Collect ALL literature references from all iterations
+        all_literature_refs = []
+        all_data_contexts = []
+        
         for record in structured_memory:
             try:
                 pce_str = str(record.get("pce", "0")).replace("%", "")
@@ -374,6 +425,19 @@ FINAL_STATUS: [CONTINUE] or FINAL_STATUS: [FINISHED]
                     best_precursors = record.get("precursors", "")
             except (ValueError, TypeError):
                 pass
+            
+            # Collect literature references
+            lit_refs = record.get("literature_refs", [])
+            if lit_refs:
+                all_literature_refs.extend(lit_refs)
+            
+            # Collect data context summaries
+            data_summary = record.get("data_context_summary", "")
+            if data_summary:
+                all_data_contexts.append(f"[Iter {record.get('iteration', '?')}] {data_summary[:500]}")
+
+        # Format literature references for prompt
+        literature_section = self._format_literature_evidence(all_literature_refs)
 
         # Format memory for conclusion
         memory_text = self._format_memory_log(memory_log)
@@ -384,9 +448,13 @@ FINAL_STATUS: [CONTINUE] or FINAL_STATUS: [FINISHED]
 # 📊 RESEARCH JOURNEY
 - **Total Iterations**: {current_iteration}
 - **Memory Records**: {len(memory_log)} experiments archived
+- **Literature Papers Analyzed**: {len(all_literature_refs)} papers
 
 # 📚 COMPLETE EXPERIMENT LOG
 {memory_text}
+
+# 📖 LITERATURE EVIDENCE (From DataAgent)
+{literature_section if literature_section else "No literature data was collected in this research."}
 
 # 🏆 BEST RESULT SUMMARY
 - **Formula**: {best_formula}
@@ -402,20 +470,24 @@ This conclusion should include:
 
 1. **Goal Summary**: Restate the original research goal
 2. **Research Journey**: Brief summary of what was explored across all iterations
-3. **Best Solution Found**:
+3. **Literature Evidence**: 
+   - Cite relevant papers that support your recommendations (use arxiv IDs if available)
+   - What key findings from literature informed the design?
+4. **Best Solution Found**:
    - Recommended formula/composition
    - Complete synthesis protocol (step-by-step)
    - Required precursors and materials
    - Expected performance metrics (PCE, Voc, etc.)
-4. **Key Scientific Insights**: What did we learn about the perovskite system?
-5. **Recommendations**: 
+5. **Key Scientific Insights**: What did we learn about the perovskite system?
+6. **Recommendations**: 
    - What should the user do next?
    - Any caveats or considerations?
-6. **Confidence Assessment**: How confident are we in this recommendation?
+7. **Confidence Assessment**: How confident are we in this recommendation?
 
 ⚠️ IMPORTANT:
 - Write in clear, professional scientific language
 - Include SPECIFIC details (formulas, temperatures, times, concentrations)
+- CITE LITERATURE: If papers were analyzed, reference them to support your claims
 - This is the ONLY output the user will see for the final result
 - Make it comprehensive enough to be actionable
 

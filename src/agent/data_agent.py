@@ -925,7 +925,8 @@ Provide your findings in a structured format. If extracting data, include:
         
         # First, check tool_results for extract_data_from_papers result
         for result in tool_results:
-            tool_name = result.get("tool_name", "")
+            # Note: key is "tool" not "tool_name" (from autonomous_thinking)
+            tool_name = result.get("tool", "") or result.get("tool_name", "")
             tool_result = result.get("result", "")
             
             if tool_name == "extract_data_from_papers":

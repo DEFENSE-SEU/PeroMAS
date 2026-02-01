@@ -65,6 +65,36 @@ class MemoryAgent(BaseAgent):
     ) -> str:
         return SYSTEM_PROMPT
 
+    def _extract_literature_references(self, data_context: str) -> list[dict[str, Any]]:
+        """Extract literature references from DataAgent's data_context."""
+        refs = []
+        if not data_context:
+            return refs
+        
+        try:
+            # Try to parse as JSON
+            data = json.loads(data_context)
+            extracted_data = data.get("extracted_data", [])
+            
+            for paper in extracted_data:
+                ref = {
+                    "paper_id": paper.get("arxiv_id", paper.get("paper_id", "Unknown")),
+                    "title": paper.get("title", "Unknown"),
+                    "key_findings": paper.get("key_findings", []),
+                    "performance_metrics": paper.get("performance_metrics", {}),
+                    "materials": paper.get("materials", {}),
+                }
+                refs.append(ref)
+                
+        except (json.JSONDecodeError, TypeError):
+            # If not JSON, try to extract paper IDs using regex
+            import re
+            arxiv_ids = re.findall(r'\d{4}\.\d{4,5}(?:v\d+)?', data_context)
+            for arxiv_id in set(arxiv_ids):
+                refs.append({"paper_id": arxiv_id, "title": "Unknown", "key_findings": []})
+        
+        return refs
+
     async def run(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Execute selective memory logic with FULL state visibility.
@@ -259,6 +289,9 @@ You MUST extract and archive:
             )
             
             # Also store structured data for potential retrieval
+            # Parse data_context for literature references
+            literature_refs = self._extract_literature_references(data_context)
+            
             structured_memory = {
                 "iteration": current_iteration,
                 "goal_summary": entry_json.get("goal_summary", ""),
@@ -270,7 +303,10 @@ You MUST extract and archive:
                 "verdict": entry_json.get("verdict", "UNKNOWN"),
                 "aligned_with_goal": goal_alignment.get("aligned", False),
                 "learning": entry_json.get("critical_learning", ""),
-                "advice": entry_json.get("next_iteration_advice", "")
+                "advice": entry_json.get("next_iteration_advice", ""),
+                # IMPORTANT: Include literature evidence
+                "literature_refs": literature_refs,
+                "data_context_summary": data_context[:1500] if data_context else ""
             }
         else:
             # Fallback: create entry from known values
@@ -282,12 +318,17 @@ You MUST extract and archive:
                 f"**PCE**: {predicted_pce}\n"
                 f"**Raw Response**: {response_text[:500]}"
             )
+            # Parse data_context for literature references (fallback)
+            literature_refs = self._extract_literature_references(data_context)
+            
             structured_memory = {
                 "iteration": current_iteration,
                 "formula": formula,
                 "method": method,
                 "synthesis_protocol": synthesis_protocol,
-                "pce": predicted_pce
+                "pce": predicted_pce,
+                "literature_refs": literature_refs,
+                "data_context_summary": data_context[:1500] if data_context else ""
             }
 
         self.logger.info(f"Archived Iteration {current_iteration}. Formula: {formula}, PCE: {predicted_pce}")
