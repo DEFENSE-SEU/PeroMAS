@@ -53,6 +53,8 @@ DATA_AGENT_TOOLS = [
             "name": "save_markdown_locally",
             "description": """Save paper Markdown to local filesystem.
 
+IMPORTANT: Check if file already exists before calling! If the paper_id is already in the papers directory, DO NOT call this tool again.
+
 After read_paper, use this to save the content locally.
 Content is auto-retrieved from cache - just provide save_path with paper_id.
 
@@ -126,6 +128,13 @@ You have full autonomy to decide which tools to use and in what order based on t
 | `save_markdown_locally` | Save to disk | Required before extraction |
 | `extract_data_from_papers` | LLM-powered extraction | Only works on saved local files |
 
+## 🔴 CRITICAL: Avoid Duplicate Downloads
+**BEFORE downloading or saving any paper, always check if it already exists:**
+- If the paper_id is in the "Already Downloaded" list provided in the prompt, SKIP it
+- Do NOT re-download papers that are already in the papers directory
+- Only download and save NEW papers that you haven't processed yet
+- Search results may include papers you've already downloaded - filter them out
+
 ## 🔴 Technical Constraint: Search Query Format
 arXiv API has limited query parsing. Complex Boolean queries will fail or return garbage.
 
@@ -150,6 +159,7 @@ Typical sequence: download_paper → read_paper → save_markdown_locally → ex
 - **Need specific paper content?** → Download → Read
 - **Need structured data extraction?** → Save papers locally first, then extract
 - **Task says "extract" or "analyze"?** → You'll likely need to save papers before extracting
+- **Paper already exists?** → SKIP download, move to next paper
 
 ## Output Principles
 - Only report information found in actual papers
@@ -385,6 +395,16 @@ class DataAgent(BaseAgent):
             # Ensure directory exists
             save_path = Path(save_path)
             save_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Check if file already exists - SKIP if duplicate
+            if save_path.exists():
+                self.logger.info(f"Paper already exists, skipping: {save_path}")
+                return json.dumps({
+                    "status": "skipped",
+                    "message": f"Paper already exists at {save_path}. No need to save again.",
+                    "file_path": str(save_path.absolute()),
+                    "reason": "duplicate"
+                })
             
             # Save Markdown content
             with open(save_path, "w", encoding="utf-8") as f:
@@ -798,9 +818,10 @@ Based on the Goal and Plan above, extract relevant data from this paper.
         # Ensure papers directory exists
         self._ensure_papers_directory()
         
-        # Show existing papers count
+        # Show existing papers count and get paper IDs
         papers_dir = Path(self.local_papers_dir)
         existing_papers = list(papers_dir.glob("*.md"))
+        existing_paper_ids = [p.stem for p in existing_papers]  # Get paper IDs without .md extension
         if existing_papers:
             print(f"📂 {len(existing_papers)} existing papers in directory")
         
@@ -832,6 +853,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
 ## Workspace
 - **Papers Directory**: `{self.local_papers_dir}`
 - **Existing Papers**: {len(existing_papers)} .md files already saved
+{f"- **Already Downloaded (DO NOT re-download)**: {existing_paper_ids}" if existing_paper_ids else ""}
 
 ## Available Actions
 You have full autonomy to decide what to do. Consider:
@@ -849,10 +871,27 @@ You have full autonomy to decide what to do. Consider:
    - ⚠️ Only works on papers saved in `{self.local_papers_dir}`
    - Call with: `extract_data_from_papers(goal="{(goal or '')[:100]}...", plan="...", papers_dir="{self.local_papers_dir}")`
 
+## ⚠️ CRITICAL REQUIREMENTS
+1. **NO DUPLICATE DOWNLOADS**: Skip papers already in the directory. Check paper_id against existing files before downloading.
+   
+2. **Paper Collection Goal**: Aim to save **8-10 papers** locally before calling `extract_data_from_papers`. 
+   - If search returns relevant papers, download ALL NEW ones (skip duplicates)
+   - Use multiple different search queries to cover various aspects of the research goal
+   - Each NEW relevant paper found should be: downloaded → read → saved
+   - **If after 3+ diverse searches you still have <5 papers, proceed with what you have** (some topics have limited literature)
+
+3. **Search Diversity**: Use at least 2-3 different search queries with varied keywords to ensure comprehensive coverage
+
+4. **Before calling `extract_data_from_papers`**:
+   - Ideal: ≥8 papers saved
+   - Acceptable minimum: ≥5 papers (if topic has limited coverage)
+   - If only 1-2 papers found after exhaustive search, still proceed but note the limitation
+
 ## Think About
 - What information does the task need?
-- Are there existing papers I can use, or do I need to search?
-- If I need to extract structured data, have I saved the papers locally first?
+- Have I searched from multiple angles (different keyword combinations)?
+- Have I downloaded and saved ALL relevant papers from search results?
+- Do I have at least 8 papers saved before extraction?
 
 ## Output
 Provide your findings in a structured format. If extracting data, include:
