@@ -1113,7 +1113,7 @@ class AnalysisAgent(BaseAgent):
         
         # === Display upstream context clearly ===
         print(f"\n📊 Upstream Context (Full Pipeline):")
-        print(f"   ├─ 🎯 Goal: {goal[:60]}{'...' if len(goal) > 60 else ''}")
+        print(f"   ├─ 🎯 Goal: {(goal or '')[:60]}{'...' if len(goal or '') > 60 else ''}")
         print(f"   ├─ 📝 Task: {my_task}")
         print(f"   ├─ 📚 Data (DataAgent): {len(data_context)} chars")
         

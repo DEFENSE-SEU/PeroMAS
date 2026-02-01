@@ -637,7 +637,7 @@ class FabAgent(BaseAgent):
         
         # === Display upstream context clearly ===
         print(f"\n📊 Upstream Context:")
-        print(f"   ├─ 🎯 Goal: {goal[:80]}{'...' if len(goal) > 80 else ''}")
+        print(f"   ├─ 🎯 Goal: {(goal or '')[:80]}{'...' if len(goal or '') > 80 else ''}")
         print(f"   ├─ 📝 Task: {my_task}")
         print(f"   ├─ 📚 Data (DataAgent): {len(data_context)} chars")
         
@@ -662,8 +662,8 @@ class FabAgent(BaseAgent):
             return {"fab_results": {
                 "status": "failed",
                 "error": "No experimental parameters from DesignAgent",
-                "composition": None,
-                "predicted_metrics": None
+                "composition": "N/A",
+                "predicted_metrics": {}  # Empty dict, not None - safer for downstream processing
             }}
 
         recipe_str = json.dumps(experimental_params, indent=2)

@@ -384,11 +384,33 @@ def extract_agent_outputs(final_state: dict) -> dict:
     else:
         outputs["MetaAgent"]["last_plan"] = {"raw": str(plan) if plan else "N/A"}
     
-    # DataAgent - data_context (完整)
+    # DataAgent - data_context (完整) + 解析文献信息
     data_context = final_state.get("data_context", "")
-    outputs["DataAgent"] = {
-        "data_context": data_context if data_context else "No data collected"
+    data_agent_output = {
+        "data_context": data_context if data_context else "No data collected",
+        "papers_analyzed": 0,
+        "paper_list": [],
     }
+    
+    # 解析 data_context 提取文献信息
+    if data_context:
+        try:
+            data_json = json.loads(data_context)
+            extracted_data = data_json.get("extracted_data", [])
+            data_agent_output["papers_analyzed"] = len(extracted_data)
+            data_agent_output["paper_list"] = [
+                {
+                    "paper_id": p.get("arxiv_id", p.get("paper_id", "Unknown")),
+                    "title": p.get("title", "Unknown"),
+                    "key_findings": p.get("key_findings", []),
+                    "performance_metrics": p.get("performance_metrics", {}),
+                }
+                for p in extracted_data
+            ]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
+    outputs["DataAgent"] = data_agent_output
     
     # DesignAgent - experimental_params (完整)
     exp_params = final_state.get("experimental_params", {})
@@ -408,12 +430,14 @@ def extract_agent_outputs(final_state: dict) -> dict:
         outputs["DesignAgent"] = {"status": "No design generated"}
     
     # FabAgent - fab_results (完整)
-    fab_results = final_state.get("fab_results", {})
+    fab_results = final_state.get("fab_results") or {}
     if fab_results and isinstance(fab_results, dict):
         # Handle None values: get() returns None if key exists but value is None
-        metrics = fab_results.get("predicted_metrics") or fab_results.get("metrics") or {}
+        # Also handle cases where metrics might be non-dict types
+        raw_metrics = fab_results.get("predicted_metrics") or fab_results.get("metrics")
+        metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
         outputs["FabAgent"] = {
-            "composition": fab_results.get("composition", "N/A"),
+            "composition": fab_results.get("composition") or "N/A",
             "PCE_percent": metrics.get("PCE_percent", "N/A") if metrics else "N/A",
             "Voc_V": metrics.get("Voc_V", "N/A") if metrics else "N/A",
             "Jsc_mA_cm2": metrics.get("Jsc_mA_cm2", "N/A") if metrics else "N/A",
@@ -580,43 +604,113 @@ class WorkflowJudge:
         task_desc = type_desc_map.get(query_type, f"❓ 其他类型: {query_type}")
         
         # 提取关键结果
+        meta_output = agent_outputs.get("MetaAgent", {})
+        data_output = agent_outputs.get("DataAgent", {})
         design_output = agent_outputs.get("DesignAgent", {})
         fab_output = agent_outputs.get("FabAgent", {})
         analysis_output = agent_outputs.get("AnalysisAgent", {})
+        memory_output = agent_outputs.get("MemoryAgent", {})
         
-        # 构建评估 Prompt
+        # === 格式化 MetaAgent 完整历史 ===
+        meta_history = meta_output.get("history", [])
+        meta_history_text = ""
+        for entry in meta_history:
+            iter_num = entry.get("iteration", "?")
+            response = entry.get("response", "N/A")
+            # 截取每轮的关键部分（不超过2000字符）
+            if len(response) > 2000:
+                response = response[:2000] + "...[截断]"
+            meta_history_text += f"\n--- 第{iter_num}轮 ---\n{response}\n"
+        
+        # === 格式化文献信息 ===
+        papers_analyzed = data_output.get("papers_analyzed", 0)
+        paper_list = data_output.get("paper_list", [])
+        literature_text = f"分析论文数: {papers_analyzed}\n"
+        for p in paper_list[:10]:  # 最多显示10篇
+            literature_text += f"- [{p.get('paper_id', 'N/A')}] {p.get('title', 'Unknown')[:80]}\n"
+            findings = p.get('key_findings', [])
+            if findings:
+                if isinstance(findings, list):
+                    literature_text += f"  Key Findings: {'; '.join(str(f)[:100] for f in findings[:3])}\n"
+                else:
+                    literature_text += f"  Key Findings: {str(findings)[:200]}\n"
+        
+        # === 格式化 Memory 中的迭代学习（含文献引用）===
+        structured_memory = memory_output.get("structured_memory", [])
+        memory_summary = ""
+        for m in structured_memory:
+            iter_n = m.get("iteration", "?")
+            formula = m.get("formula", "N/A")
+            pce = m.get("pce", "N/A")
+            verdict = m.get("verdict", "N/A")
+            learning = m.get("learning", "N/A")
+            lit_refs = m.get("literature_refs", [])
+            lit_summary = m.get("literature_summary", "")
+            
+            memory_summary += f"- Iter{iter_n}: {formula}, PCE={pce}, {verdict}\n"
+            memory_summary += f"  Learning: {str(learning)[:150]}...\n"
+            
+            # 显示该轮引用的文献（使用格式化的摘要）
+            if lit_summary:
+                # 使用精简的文献摘要
+                memory_summary += f"  {lit_summary[:300]}...\n"
+            elif lit_refs:
+                # Fallback: 仅显示论文ID
+                memory_summary += f"  Literature ({len(lit_refs)} papers): "
+                ref_ids = [r.get("paper_id", "?") for r in lit_refs[:5]]
+                memory_summary += ", ".join(ref_ids) + "\n"
+        
+        # 构建评估 Prompt - 完整展示所有迭代
         eval_prompt = f"""## 任务类型
 {task_desc}
 
 ## 用户研究目标
 {user_query}
 
-## 各智能体输出摘要
-
-### MetaAgent (规划):
-{json.dumps(agent_outputs.get("MetaAgent", {}), indent=2, ensure_ascii=False)}
-
-### DataAgent (文献):
-{json.dumps(agent_outputs.get("DataAgent", {}), indent=2, ensure_ascii=False)[:1000]}
-
-### DesignAgent (设计):
-{json.dumps(design_output, indent=2, ensure_ascii=False)}
-
-### FabAgent (预测):
-{json.dumps(fab_output, indent=2, ensure_ascii=False)}
-
-### AnalysisAgent (分析):
-{json.dumps(analysis_output, indent=2, ensure_ascii=False)[:1500]}
-
-### MemoryAgent (记忆):
-{json.dumps(agent_outputs.get("MemoryAgent", {}), indent=2, ensure_ascii=False)}
-
-## 工作流元信息
-- 迭代次数: {final_state.get("current_iteration", 0)}
+## 工作流概览
+- 总迭代次数: {final_state.get("current_iteration", 0)}
 - 是否完成: {final_state.get("is_finished", False)}
 
 ---
-请全面评估这个研究方案的质量，给出100分制评分。
+
+## 一、MetaAgent 完整迭代历史 (Chief Scientist 规划)
+{meta_history_text if meta_history_text else "无历史记录"}
+
+### MetaAgent 最终结论:
+{meta_output.get("final_conclusion", "未生成最终结论")}
+
+---
+
+## 二、DataAgent 文献检索结果
+{literature_text if papers_analyzed > 0 else "未收集到文献数据"}
+
+---
+
+## 三、DesignAgent 材料设计
+{json.dumps(design_output, indent=2, ensure_ascii=False)}
+
+---
+
+## 四、FabAgent 性能预测
+{json.dumps(fab_output, indent=2, ensure_ascii=False)}
+
+---
+
+## 五、AnalysisAgent 分析报告
+{json.dumps(analysis_output, indent=2, ensure_ascii=False)[:2000]}
+
+---
+
+## 六、MemoryAgent 迭代学习记录
+{memory_summary if memory_summary else "无学习记录"}
+
+---
+
+请全面评估这个**完整的多轮迭代研究过程**的质量，给出100分制评分。
+评估要点：
+1. 是否有文献支撑设计决策？
+2. 各轮迭代是否有学习和改进？
+3. 最终方案是否回应了用户目标？
 """
         try:
             response = await self.llm.ainvoke_simple(

@@ -132,14 +132,14 @@ class MetaAgent(BaseAgent):
 
 # Your Autonomous Tasks
 1. **Analyze Memory**: What do ALL previous iterations tell us? What patterns emerge?
-2. **Goal Alignment Check**: Is our current approach moving toward the goal "{goal[:100]}..."?
+2. **Goal Alignment Check**: Is our current approach moving toward the goal "{(goal or '')[:100]}..."?
 3. **Hypothesize**: What SPECIFIC scientific hypothesis should guide this iteration?
 4. **Strategy**: Should we CONTINUE current approach, PIVOT to new direction, or REFINE parameters?
 5. **Plan**: Create SPECIFIC tasks for each agent (must be aligned with goal!)
 6. **Decide**: Continue research or conclude?
 
 # ⚠️ CRITICAL REQUIREMENTS:
-- Your plan MUST be aligned with the original goal: "{goal[:150]}..."
+- Your plan MUST be aligned with the original goal: "{(goal or '')[:150]}..."
 - If previous iterations used wrong formulas (not matching goal), CORRECT it!
 - Learn from ALL archived failures - do NOT repeat the same mistakes
 - Use the complete synthesis protocol and precursor information from memory
@@ -431,10 +431,10 @@ FINAL_STATUS: [CONTINUE] or FINAL_STATUS: [FINISHED]
             if lit_refs:
                 all_literature_refs.extend(lit_refs)
             
-            # Collect data context summaries
-            data_summary = record.get("data_context_summary", "")
-            if data_summary:
-                all_data_contexts.append(f"[Iter {record.get('iteration', '?')}] {data_summary[:500]}")
+            # Collect literature summaries (human-readable)
+            lit_summary = record.get("literature_summary", "")
+            if lit_summary:
+                all_data_contexts.append(f"[Iter {record.get('iteration', '?')}]\n{lit_summary}")
 
         # Format literature references for prompt
         literature_section = self._format_literature_evidence(all_literature_refs)

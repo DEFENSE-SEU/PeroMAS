@@ -66,7 +66,8 @@ class MemoryAgent(BaseAgent):
         return SYSTEM_PROMPT
 
     def _extract_literature_references(self, data_context: str) -> list[dict[str, Any]]:
-        """Extract literature references from DataAgent's data_context."""
+        """Extract COMPACT literature references from DataAgent's data_context.
+        Only keeps essential info to avoid context explosion."""
         refs = []
         if not data_context:
             return refs
@@ -77,23 +78,73 @@ class MemoryAgent(BaseAgent):
             extracted_data = data.get("extracted_data", [])
             
             for paper in extracted_data:
+                # Extract only essential fields with length limits
+                key_findings = paper.get("key_findings", {})
+                # Convert key_findings to compact string if it's a dict
+                if isinstance(key_findings, dict):
+                    findings_str = "; ".join(f"{k}:{v}" for k, v in list(key_findings.items())[:5])
+                elif isinstance(key_findings, list):
+                    findings_str = "; ".join(str(f)[:100] for f in key_findings[:3])
+                else:
+                    findings_str = str(key_findings)[:300]
+                
+                # Compact performance metrics
+                metrics = paper.get("performance_metrics", {})
+                metrics_compact = {}
+                if isinstance(metrics, dict):
+                    for k in ["PCE", "Voc", "Jsc", "FF"]:
+                        if metrics.get(k) is not None:
+                            metrics_compact[k] = metrics[k]
+                
+                # Compact materials info
+                materials = paper.get("materials", {})
+                composition = materials.get("composition", "") if isinstance(materials, dict) else ""
+                
                 ref = {
                     "paper_id": paper.get("arxiv_id", paper.get("paper_id", "Unknown")),
-                    "title": paper.get("title", "Unknown"),
-                    "key_findings": paper.get("key_findings", []),
-                    "performance_metrics": paper.get("performance_metrics", {}),
-                    "materials": paper.get("materials", {}),
+                    "title": (paper.get("title") or "Unknown")[:100],  # Limit title length
+                    "findings": findings_str[:300],  # Compact findings
+                    "metrics": metrics_compact,  # Only non-null metrics
+                    "composition": composition[:100] if composition else "",
                 }
                 refs.append(ref)
                 
         except (json.JSONDecodeError, TypeError):
             # If not JSON, try to extract paper IDs using regex
-            import re
             arxiv_ids = re.findall(r'\d{4}\.\d{4,5}(?:v\d+)?', data_context)
             for arxiv_id in set(arxiv_ids):
-                refs.append({"paper_id": arxiv_id, "title": "Unknown", "key_findings": []})
+                refs.append({"paper_id": arxiv_id, "title": "Unknown", "findings": ""})
         
         return refs
+
+    def _format_literature_summary(self, literature_refs: list[dict]) -> str:
+        """Format literature references into a human-readable summary."""
+        if not literature_refs:
+            return "No literature data collected this iteration."
+        
+        lines = [f"📚 Analyzed {len(literature_refs)} papers:"]
+        for i, ref in enumerate(literature_refs[:10], 1):  # Max 10 papers
+            paper_id = ref.get("paper_id") or "?"
+            title = (ref.get("title") or "Unknown")[:60]
+            findings = ref.get("findings") or ""
+            metrics = ref.get("metrics") or {}
+            composition = ref.get("composition") or ""
+            
+            line = f"[{paper_id}] {title}"
+            if composition:
+                line += f" | Comp: {composition}"
+            if metrics:
+                metrics_str = ", ".join(f"{k}={v}" for k, v in metrics.items())
+                line += f" | {metrics_str}"
+            if findings:
+                line += f" | Findings: {findings[:80]}..."
+            
+            lines.append(f"  {i}. {line}")
+        
+        if len(literature_refs) > 10:
+            lines.append(f"  ... and {len(literature_refs) - 10} more papers")
+        
+        return "\n".join(lines)
 
     async def run(self, state: dict[str, Any]) -> dict[str, Any]:
         """
@@ -217,7 +268,7 @@ class MemoryAgent(BaseAgent):
 
 # 🧠 YOUR TASK: Create Comprehensive Knowledge Capsule
 
-**IMPORTANT**: Evaluate everything against the ORIGINAL GOAL: "{goal[:200]}..."
+**IMPORTANT**: Evaluate everything against the ORIGINAL GOAL: "{(goal or '')[:200]}..."
 
 You MUST extract and archive:
 1. **Complete Recipe**: Formula + Method + Full Synthesis Protocol + Precursors
@@ -273,24 +324,31 @@ You MUST extract and archive:
             goal_alignment = entry_json.get("goal_alignment", {})
             
             # Format as comprehensive Markdown for MetaAgent
+            # Use 'or' to handle None values from dict.get()
+            protocol_text = recipe.get('synthesis_protocol') or synthesis_protocol or 'N/A'
+            protocol_display = protocol_text[:300] + ('...' if len(protocol_text) > 300 else '')
+            
             iteration_entry = (
-                f"### Iteration {current_iteration} [{entry_json.get('verdict', 'N/A')}]\n"
-                f"**Goal Alignment**: {'✅ Yes' if goal_alignment.get('aligned') else '❌ No'} - {goal_alignment.get('reason', 'N/A')}\n\n"
+                f"### Iteration {current_iteration} [{entry_json.get('verdict') or 'N/A'}]\n"
+                f"**Goal Alignment**: {'✅ Yes' if goal_alignment.get('aligned') else '❌ No'} - {goal_alignment.get('reason') or 'N/A'}\n\n"
                 f"**Recipe**:\n"
-                f"- Formula: {recipe.get('formula', formula)}\n"
-                f"- Method: {recipe.get('method', method)}\n"
-                f"- Protocol: {recipe.get('synthesis_protocol', synthesis_protocol)[:300]}{'...' if len(recipe.get('synthesis_protocol', synthesis_protocol)) > 300 else ''}\n"
-                f"- Precursors: {recipe.get('precursors', 'N/A')}\n"
-                f"- Key Params: {recipe.get('key_parameters', 'N/A')}\n\n"
-                f"**Predictions**: PCE={predictions.get('pce', predicted_pce)}, Voc={predictions.get('voc', predicted_voc)}, Eg={predictions.get('bandgap', predicted_bandgap)}\n\n"
-                f"**Root Cause**: {entry_json.get('root_cause', 'N/A')}\n"
-                f"**Learning**: {entry_json.get('critical_learning', 'N/A')}\n"
-                f"**Next Advice**: {entry_json.get('next_iteration_advice', 'N/A')}"
+                f"- Formula: {recipe.get('formula') or formula}\n"
+                f"- Method: {recipe.get('method') or method}\n"
+                f"- Protocol: {protocol_display}\n"
+                f"- Precursors: {recipe.get('precursors') or 'N/A'}\n"
+                f"- Key Params: {recipe.get('key_parameters') or 'N/A'}\n\n"
+                f"**Predictions**: PCE={predictions.get('pce') or predicted_pce}, Voc={predictions.get('voc') or predicted_voc}, Eg={predictions.get('bandgap') or predicted_bandgap}\n\n"
+                f"**Root Cause**: {entry_json.get('root_cause') or 'N/A'}\n"
+                f"**Learning**: {entry_json.get('critical_learning') or 'N/A'}\n"
+                f"**Next Advice**: {entry_json.get('next_iteration_advice') or 'N/A'}"
             )
             
             # Also store structured data for potential retrieval
             # Parse data_context for literature references
             literature_refs = self._extract_literature_references(data_context)
+            
+            # Build a COMPACT summary of literature findings (not raw JSON)
+            lit_summary = self._format_literature_summary(literature_refs)
             
             structured_memory = {
                 "iteration": current_iteration,
@@ -304,9 +362,9 @@ You MUST extract and archive:
                 "aligned_with_goal": goal_alignment.get("aligned", False),
                 "learning": entry_json.get("critical_learning", ""),
                 "advice": entry_json.get("next_iteration_advice", ""),
-                # IMPORTANT: Include literature evidence
+                # IMPORTANT: Include literature evidence (compact)
                 "literature_refs": literature_refs,
-                "data_context_summary": data_context[:1500] if data_context else ""
+                "literature_summary": lit_summary,  # Human-readable summary
             }
         else:
             # Fallback: create entry from known values
@@ -320,6 +378,7 @@ You MUST extract and archive:
             )
             # Parse data_context for literature references (fallback)
             literature_refs = self._extract_literature_references(data_context)
+            lit_summary = self._format_literature_summary(literature_refs)
             
             structured_memory = {
                 "iteration": current_iteration,
@@ -328,7 +387,7 @@ You MUST extract and archive:
                 "synthesis_protocol": synthesis_protocol,
                 "pce": predicted_pce,
                 "literature_refs": literature_refs,
-                "data_context_summary": data_context[:1500] if data_context else ""
+                "literature_summary": lit_summary,
             }
 
         self.logger.info(f"Archived Iteration {current_iteration}. Formula: {formula}, PCE: {predicted_pce}")

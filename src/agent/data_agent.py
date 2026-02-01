@@ -274,14 +274,14 @@ class DataAgent(BaseAgent):
                 if relevant_papers:
                     print("  ✅ RELEVANT (will download):")
                     for i, paper in enumerate(relevant_papers[:8], 1):
-                        arxiv_id = paper.get("id", "N/A")
-                        title = paper.get("title", "N/A")[:70]
+                        arxiv_id = paper.get("id") or "N/A"
+                        title = (paper.get("title") or "N/A")[:70]
                         print(f"    [{i}] {arxiv_id}: {title}...")
                 
                 if skipped_papers:
                     print(f"\n  ❌ SKIPPED ({len(skipped_papers)} irrelevant):")
                     for paper in skipped_papers[:3]:
-                        title = paper.get("title", "N/A")[:50]
+                        title = (paper.get("title") or "N/A")[:50]
                         print(f"    - {title}...")
                     if len(skipped_papers) > 3:
                         print(f"    ... and {len(skipped_papers) - 3} more")
@@ -816,7 +816,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
         
         # === Display upstream context ===
         print(f"\n📊 Upstream Context:")
-        print(f"   ├─ 🎯 Goal: {goal[:80]}{'...' if len(goal) > 80 else ''}")
+        print(f"   ├─ 🎯 Goal: {(goal or '')[:80]}{'...' if len(goal or '') > 80 else ''}")
         print(f"   ├─ 📝 Task: {my_task}")
         print(f"   └─ 📁 Output Dir: {self.local_papers_dir}")
 
@@ -847,7 +847,7 @@ You have full autonomy to decide what to do. Consider:
 
 4. **Extract** (`extract_data_from_papers`) - LLM-powered structured extraction
    - ⚠️ Only works on papers saved in `{self.local_papers_dir}`
-   - Call with: `extract_data_from_papers(goal="{goal[:100]}...", plan="...", papers_dir="{self.local_papers_dir}")`
+   - Call with: `extract_data_from_papers(goal="{(goal or '')[:100]}...", plan="...", papers_dir="{self.local_papers_dir}")`
 
 ## Think About
 - What information does the task need?

@@ -600,7 +600,7 @@ Do NOT call any more tools - just analyze the results you already have."""
         
         # === Display upstream context clearly ===
         print(f"\n📊 Upstream Context:")
-        print(f"   ├─ 🎯 Goal: {goal[:80]}{'...' if len(goal) > 80 else ''}")
+        print(f"   ├─ 🎯 Goal: {(goal or '')[:80]}{'...' if len(goal or '') > 80 else ''}")
         print(f"   ├─ 📝 Task: {my_task}")
         print(f"   └─ 📚 Data (DataAgent): {len(data_context)} chars")
         
