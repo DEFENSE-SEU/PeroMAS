@@ -456,10 +456,16 @@ class DataAgent(BaseAgent):
                     response = await self.llm.ainvoke(messages)
                     response_text = response.content if hasattr(response, 'content') else str(response)
                     
+                    # Handle None response
+                    if response_text is None:
+                        raise ValueError("LLM returned None response")
+                    
                     paper_data = self._parse_extraction_response(response_text, paper_id)
                     extracted_data.append(paper_data)
                     
-                    print(f"    ✅ Extracted: {paper_data.get('title', 'Unknown')[:50]}...")
+                    # Safely get title (handle both missing key and None value)
+                    title = paper_data.get('title') or 'Unknown'
+                    print(f"    ✅ Extracted: {title[:50]}...")
                     
                 except Exception as e:
                     self.logger.error(f"Failed to extract from {paper_id}: {e}")
@@ -542,6 +548,14 @@ Based on the Goal and Plan above, extract relevant data from this paper.
     def _parse_extraction_response(self, response_text: str, paper_id: str) -> dict[str, Any]:
         """Parse LLM response to extract JSON data."""
         try:
+            # Handle None or empty response
+            if not response_text:
+                return {
+                    "arxiv_id": paper_id,
+                    "status": "error",
+                    "error": "Empty or None response from LLM"
+                }
+            
             if "```json" in response_text:
                 start = response_text.find("```json") + 7
                 end = response_text.find("```", start)

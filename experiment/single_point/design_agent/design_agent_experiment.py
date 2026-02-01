@@ -25,7 +25,7 @@ DesignAgent 批量实验脚本
 Usage:
     cd f:\\PSC_Agents\\experiment\\single_point\\design_agent
     python design_agent_experiment.py
-    python design_agent_experiment.py --mode interactive  # 与服务器交互
+    ccc  # 与服务器交互
     python design_agent_experiment.py --query Q001       # 运行单个查询
     python design_agent_experiment.py --query Q001,Q006  # 运行多个查询
     python design_agent_experiment.py --list             # 列出所有查询
