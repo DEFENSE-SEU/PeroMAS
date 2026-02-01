@@ -25,6 +25,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.base_agent import BaseAgent
 from core.config import Settings
 
+
+# === Type-safe Helper Functions ===
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert any value to string, handling None, list, dict."""
+    if value is None:
+        return default
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) if value else default
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False) if value else default
+    return str(value)
+
+
+def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = "N/A") -> str:
+    """Safely truncate any value to max_len characters."""
+    str_value = safe_str(value, default)
+    if len(str_value) > max_len:
+        return str_value[:max_len] + suffix
+    return str_value
+
+
 # Import visualization tools
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "mcp" / "analysis_agent"))
@@ -1163,7 +1184,7 @@ class AnalysisAgent(BaseAgent):
 # 📥 Available Context
 
 ### Literature (DataAgent):
-{data_context[:2000] if data_context else 'No literature data.'}
+{safe_truncate(data_context, 2000, default='No literature data.')}
 
 ### Design Recipe (DesignAgent):
 ```json

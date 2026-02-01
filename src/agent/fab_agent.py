@@ -20,6 +20,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.base_agent import BaseAgent
 from core.config import Settings
 
+
+# === Type-safe Helper Functions ===
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert any value to string, handling None, list, dict."""
+    if value is None:
+        return default
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) if value else default
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False) if value else default
+    return str(value)
+
+
+def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = "N/A") -> str:
+    """Safely truncate any value to max_len characters."""
+    str_value = safe_str(value, default)
+    if len(str_value) > max_len:
+        return str_value[:max_len] + suffix
+    return str_value
+
+
 # Import visualization tool - handle multiple possible import paths
 visualize_prediction_results = None
 PredictionVisualizer = None
@@ -637,22 +658,22 @@ class FabAgent(BaseAgent):
         
         # === Display upstream context clearly ===
         print(f"\n📊 Upstream Context:")
-        print(f"   ├─ 🎯 Goal: {(goal or '')[:80]}{'...' if len(goal or '') > 80 else ''}")
+        print(f"   ├─ 🎯 Goal: {safe_truncate(goal, 80)}")
         print(f"   ├─ 📝 Task: {my_task}")
-        print(f"   ├─ 📚 Data (DataAgent): {len(data_context)} chars")
+        print(f"   ├─ 📚 Data (DataAgent): {len(safe_str(data_context))} chars")
         
         # Extract key info from DesignAgent output
         if experimental_params:
             composition = experimental_params.get("composition", {})
-            formula = composition.get("formula", "N/A")
+            formula = safe_str(composition.get("formula"), "N/A") if isinstance(composition, dict) else "N/A"
             process = experimental_params.get("process", {})
-            method = process.get("method", "N/A")
-            protocol = process.get("synthesis_protocol", "")
+            method = safe_str(process.get("method"), "N/A") if isinstance(process, dict) else "N/A"
+            protocol = safe_str(process.get("synthesis_protocol")) if isinstance(process, dict) else ""
             print(f"   └─ 🧪 Design (DesignAgent):")
             print(f"       ├─ Formula: {formula}")
             print(f"       ├─ Method: {method}")
             if protocol:
-                print(f"       └─ Protocol: {protocol[:150]}{'...' if len(protocol) > 150 else ''}")
+                print(f"       └─ Protocol: {safe_truncate(protocol, 150)}")
             else:
                 print(f"       └─ Protocol: N/A")
         else:
@@ -673,7 +694,7 @@ class FabAgent(BaseAgent):
 **Research Context**: {goal}
 
 # 📚 LITERATURE CONTEXT (from DataAgent)
-{data_context[:5000] + '...' if len(data_context) > 5000 else data_context if data_context else 'No literature data available.'}
+{safe_truncate(data_context, 5000, default='No literature data available.')}
 
 # 🧪 INPUT EXPERIMENTAL RECIPE (from DesignAgent)
 ```json
@@ -728,17 +749,18 @@ Only report actual tool outputs - don't invent values.
         else:
             # Try to parse JSON from string plan
             try:
-                match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', plan)
+                match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', str(plan))
                 if match:
                     plan_data = json.loads(match.group(1))
-                elif '{' in plan:
-                    start = plan.find('{')
-                    end = plan.rfind('}') + 1
-                    plan_data = json.loads(plan[start:end])
+                elif '{' in str(plan):
+                    plan_str = str(plan)
+                    start = plan_str.find('{')
+                    end = plan_str.rfind('}') + 1
+                    plan_data = json.loads(plan_str[start:end])
                 else:
-                    return str(plan)[:500]
+                    return safe_truncate(plan, 500)
             except (json.JSONDecodeError, KeyError):
-                return str(plan)[:500]
+                return safe_truncate(plan, 500)
         
         # Extract agent-specific task
         agent_tasks = plan_data.get("agent_tasks", {})
@@ -814,7 +836,7 @@ Only report actual tool outputs - don't invent values.
         return {
             "composition": composition,
             "predicted_metrics": predicted_metrics,
-            "analysis": parsed.get("analysis") if parsed else response[:500],
+            "analysis": parsed.get("analysis") if parsed else safe_truncate(response, 500),
             "recommendation": parsed.get("recommendation") if parsed else None,
             "status": "success" if predicted_metrics else "failed",
             "raw_response": response,

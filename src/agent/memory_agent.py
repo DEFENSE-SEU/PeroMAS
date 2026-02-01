@@ -23,6 +23,28 @@ from core.base_agent import BaseAgent
 from core.config import Settings
 
 
+# === Helper Functions for Type Safety ===
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert any value to string, handling None, list, dict, etc."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return '; '.join(str(item) for item in value)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = "N/A") -> str:
+    """Safely truncate any value to string with max length."""
+    text = safe_str(value, default)
+    if len(text) > max_len:
+        return text[:max_len] + suffix
+    return text
+
+
 # === System Prompt ===
 SYSTEM_PROMPT = """You are MemoryAgent - Strategic Knowledge Keeper of PSC_Agents.
 
@@ -78,15 +100,18 @@ class MemoryAgent(BaseAgent):
             extracted_data = data.get("extracted_data", [])
             
             for paper in extracted_data:
+                if not isinstance(paper, dict):
+                    continue
+                    
                 # Extract only essential fields with length limits
                 key_findings = paper.get("key_findings", {})
                 # Convert key_findings to compact string if it's a dict
                 if isinstance(key_findings, dict):
                     findings_str = "; ".join(f"{k}:{v}" for k, v in list(key_findings.items())[:5])
                 elif isinstance(key_findings, list):
-                    findings_str = "; ".join(str(f)[:100] for f in key_findings[:3])
+                    findings_str = "; ".join(safe_str(f)[:100] for f in key_findings[:3])
                 else:
-                    findings_str = str(key_findings)[:300]
+                    findings_str = safe_str(key_findings)[:300]
                 
                 # Compact performance metrics
                 metrics = paper.get("performance_metrics", {})
@@ -98,22 +123,24 @@ class MemoryAgent(BaseAgent):
                 
                 # Compact materials info
                 materials = paper.get("materials", {})
-                composition = materials.get("composition", "") if isinstance(materials, dict) else ""
+                composition_raw = materials.get("composition", "") if isinstance(materials, dict) else ""
+                composition = safe_str(composition_raw)
                 
                 ref = {
-                    "paper_id": paper.get("arxiv_id", paper.get("paper_id", "Unknown")),
-                    "title": (paper.get("title") or "Unknown")[:100],  # Limit title length
-                    "findings": findings_str[:300],  # Compact findings
+                    "paper_id": safe_str(paper.get("arxiv_id") or paper.get("paper_id"), "Unknown"),
+                    "title": safe_truncate(paper.get("title"), 100, "...", "Unknown"),
+                    "findings": safe_truncate(findings_str, 300),
                     "metrics": metrics_compact,  # Only non-null metrics
-                    "composition": composition[:100] if composition else "",
+                    "composition": safe_truncate(composition, 100, "", ""),
                 }
                 refs.append(ref)
                 
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError, AttributeError):
             # If not JSON, try to extract paper IDs using regex
-            arxiv_ids = re.findall(r'\d{4}\.\d{4,5}(?:v\d+)?', data_context)
-            for arxiv_id in set(arxiv_ids):
-                refs.append({"paper_id": arxiv_id, "title": "Unknown", "findings": ""})
+            if isinstance(data_context, str):
+                arxiv_ids = re.findall(r'\d{4}\.\d{4,5}(?:v\d+)?', data_context)
+                for arxiv_id in set(arxiv_ids):
+                    refs.append({"paper_id": arxiv_id, "title": "Unknown", "findings": ""})
         
         return refs
 
@@ -124,11 +151,13 @@ class MemoryAgent(BaseAgent):
         
         lines = [f"📚 Analyzed {len(literature_refs)} papers:"]
         for i, ref in enumerate(literature_refs[:10], 1):  # Max 10 papers
-            paper_id = ref.get("paper_id") or "?"
-            title = (ref.get("title") or "Unknown")[:60]
-            findings = ref.get("findings") or ""
-            metrics = ref.get("metrics") or {}
-            composition = ref.get("composition") or ""
+            if not isinstance(ref, dict):
+                continue
+            paper_id = safe_str(ref.get("paper_id"), "?")
+            title = safe_truncate(ref.get("title"), 60, "...", "Unknown")
+            findings = safe_str(ref.get("findings"), "")
+            metrics = ref.get("metrics") if isinstance(ref.get("metrics"), dict) else {}
+            composition = safe_str(ref.get("composition"), "")
             
             line = f"[{paper_id}] {title}"
             if composition:
@@ -171,10 +200,14 @@ class MemoryAgent(BaseAgent):
         fab_results = state.get("fab_results", {})  # From FabAgent
         analysis_report = state.get("analysis_report", "")  # From AnalysisAgent
         
+        # Ensure string types for safety
+        data_context = safe_str(data_context)
+        analysis_report = safe_str(analysis_report)
+        
         # Print full state visibility
         print(f"📋 Iteration: {current_iteration}")
         print(f"📚 Data context: {len(data_context)} chars")
-        print(f"🧪 Experimental params: {list(experimental_params.keys()) if experimental_params else 'None'}")
+        print(f"🧪 Experimental params: {list(experimental_params.keys()) if isinstance(experimental_params, dict) and experimental_params else 'None'}")
         print(f"🏭 Fab results: {'Available' if fab_results else 'None'}")
         print(f"📊 Analysis report: {len(analysis_report)} chars")
         
@@ -183,6 +216,7 @@ class MemoryAgent(BaseAgent):
         method = "Unknown"
         synthesis_protocol = ""
         precursors = []
+        precursors_str = "Not specified"
         predicted_pce = "N/A"
         predicted_voc = "N/A"
         predicted_jsc = "N/A"
@@ -190,40 +224,50 @@ class MemoryAgent(BaseAgent):
         predicted_bandgap = "N/A"
         predicted_t80 = "N/A"
         
-        if experimental_params:
+        if experimental_params and isinstance(experimental_params, dict):
             # Composition info
             comp = experimental_params.get("composition", {})
-            formula = comp.get("formula", experimental_params.get("formula", "Unknown"))
+            if isinstance(comp, dict):
+                formula = safe_str(comp.get("formula") or experimental_params.get("formula"), "Unknown")
+            else:
+                formula = safe_str(experimental_params.get("formula"), "Unknown")
             
             # Process info - CRITICAL: Extract full synthesis details
             process = experimental_params.get("process", {})
-            method = process.get("method", "Unknown")
-            synthesis_protocol = process.get("synthesis_protocol", "")
-            precursors = process.get("precursors", [])
+            if isinstance(process, dict):
+                method = safe_str(process.get("method"), "Unknown")
+                # Handle synthesis_protocol which might be a list or string
+                synthesis_protocol = safe_str(process.get("synthesis_protocol"), "")
+                precursors = process.get("precursors", [])
             
             # Format precursors for display
             if precursors and isinstance(precursors, list):
-                precursor_names = [p.get("name", p.get("formula", str(p))) for p in precursors if isinstance(p, dict)]
-                precursors_str = ", ".join(precursor_names) if precursor_names else str(precursors)
-            else:
-                precursors_str = str(precursors) if precursors else "Not specified"
+                precursor_names = []
+                for p in precursors:
+                    if isinstance(p, dict):
+                        precursor_names.append(safe_str(p.get("name") or p.get("formula"), str(p)))
+                    else:
+                        precursor_names.append(safe_str(p))
+                precursors_str = ", ".join(precursor_names) if precursor_names else safe_str(precursors)
+            elif precursors:
+                precursors_str = safe_str(precursors)
         
-        if fab_results:
-            metrics = fab_results.get("predicted_metrics", fab_results.get("metrics", fab_results))
+        if fab_results and isinstance(fab_results, dict):
+            metrics = fab_results.get("predicted_metrics") or fab_results.get("metrics") or fab_results
             if isinstance(metrics, dict):
-                predicted_pce = metrics.get("PCE_percent", metrics.get("pce", "N/A"))
-                predicted_voc = metrics.get("Voc_V", metrics.get("voc", "N/A"))
-                predicted_jsc = metrics.get("Jsc_mAcm2", metrics.get("jsc", "N/A"))
-                predicted_ff = metrics.get("FF_percent", metrics.get("ff", "N/A"))
-                predicted_bandgap = metrics.get("bandgap_eV", metrics.get("band_gap", "N/A"))
-                predicted_t80 = metrics.get("T80_hours", "N/A")
+                predicted_pce = safe_str(metrics.get("PCE_percent") or metrics.get("pce"), "N/A")
+                predicted_voc = safe_str(metrics.get("Voc_V") or metrics.get("voc"), "N/A")
+                predicted_jsc = safe_str(metrics.get("Jsc_mAcm2") or metrics.get("jsc"), "N/A")
+                predicted_ff = safe_str(metrics.get("FF_percent") or metrics.get("ff"), "N/A")
+                predicted_bandgap = safe_str(metrics.get("bandgap_eV") or metrics.get("band_gap"), "N/A")
+                predicted_t80 = safe_str(metrics.get("T80_hours"), "N/A")
 
         # Print extracted core info
         print(f"\n📋 Core Information Extracted:")
         print(f"   Formula: {formula}")
         print(f"   Method: {method}")
-        print(f"   Protocol: {synthesis_protocol[:100]}{'...' if len(synthesis_protocol) > 100 else ''}" if synthesis_protocol else "   Protocol: N/A")
-        print(f"   Precursors: {precursors_str if 'precursors_str' in dir() else 'N/A'}")
+        print(f"   Protocol: {safe_truncate(synthesis_protocol, 100)}" if synthesis_protocol else "   Protocol: N/A")
+        print(f"   Precursors: {precursors_str}")
         print(f"   Predicted PCE: {predicted_pce}")
 
         # 2. Build archival prompt with FULL context and GOAL alignment
@@ -313,34 +357,49 @@ You MUST extract and archive:
             max_iterations=2,
         )
 
-        response_text = result.get("response", "")
+        response_text = safe_str(result.get("response"), "")
         
         # 3. Parse and build structured log entry
         entry_json = self._extract_json_block(response_text)
         
-        if entry_json:
-            recipe = entry_json.get("recipe", {})
-            predictions = entry_json.get("predictions", {})
-            goal_alignment = entry_json.get("goal_alignment", {})
+        if entry_json and isinstance(entry_json, dict):
+            recipe = entry_json.get("recipe", {}) if isinstance(entry_json.get("recipe"), dict) else {}
+            predictions = entry_json.get("predictions", {}) if isinstance(entry_json.get("predictions"), dict) else {}
+            goal_alignment = entry_json.get("goal_alignment", {}) if isinstance(entry_json.get("goal_alignment"), dict) else {}
             
             # Format as comprehensive Markdown for MetaAgent
-            # Use 'or' to handle None values from dict.get()
-            protocol_text = recipe.get('synthesis_protocol') or synthesis_protocol or 'N/A'
-            protocol_display = protocol_text[:300] + ('...' if len(protocol_text) > 300 else '')
+            # Use safe_str to handle None, list, dict, etc.
+            protocol_raw = recipe.get('synthesis_protocol') or synthesis_protocol or 'N/A'
+            protocol_text = safe_str(protocol_raw)
+            protocol_display = safe_truncate(protocol_text, 300)
+            
+            # Safe extraction of all fields
+            recipe_formula = safe_str(recipe.get('formula') or formula)
+            recipe_method = safe_str(recipe.get('method') or method)
+            recipe_precursors = safe_str(recipe.get('precursors'), 'N/A')
+            recipe_key_params = safe_str(recipe.get('key_parameters'), 'N/A')
+            pred_pce = safe_str(predictions.get('pce') or predicted_pce)
+            pred_voc = safe_str(predictions.get('voc') or predicted_voc)
+            pred_bandgap = safe_str(predictions.get('bandgap') or predicted_bandgap)
+            verdict = safe_str(entry_json.get('verdict'), 'N/A')
+            root_cause = safe_str(entry_json.get('root_cause'), 'N/A')
+            learning = safe_str(entry_json.get('critical_learning'), 'N/A')
+            advice = safe_str(entry_json.get('next_iteration_advice'), 'N/A')
+            align_reason = safe_str(goal_alignment.get('reason'), 'N/A')
             
             iteration_entry = (
-                f"### Iteration {current_iteration} [{entry_json.get('verdict') or 'N/A'}]\n"
-                f"**Goal Alignment**: {'✅ Yes' if goal_alignment.get('aligned') else '❌ No'} - {goal_alignment.get('reason') or 'N/A'}\n\n"
+                f"### Iteration {current_iteration} [{verdict}]\n"
+                f"**Goal Alignment**: {'✅ Yes' if goal_alignment.get('aligned') else '❌ No'} - {align_reason}\n\n"
                 f"**Recipe**:\n"
-                f"- Formula: {recipe.get('formula') or formula}\n"
-                f"- Method: {recipe.get('method') or method}\n"
+                f"- Formula: {recipe_formula}\n"
+                f"- Method: {recipe_method}\n"
                 f"- Protocol: {protocol_display}\n"
-                f"- Precursors: {recipe.get('precursors') or 'N/A'}\n"
-                f"- Key Params: {recipe.get('key_parameters') or 'N/A'}\n\n"
-                f"**Predictions**: PCE={predictions.get('pce') or predicted_pce}, Voc={predictions.get('voc') or predicted_voc}, Eg={predictions.get('bandgap') or predicted_bandgap}\n\n"
-                f"**Root Cause**: {entry_json.get('root_cause') or 'N/A'}\n"
-                f"**Learning**: {entry_json.get('critical_learning') or 'N/A'}\n"
-                f"**Next Advice**: {entry_json.get('next_iteration_advice') or 'N/A'}"
+                f"- Precursors: {recipe_precursors}\n"
+                f"- Key Params: {recipe_key_params}\n\n"
+                f"**Predictions**: PCE={pred_pce}, Voc={pred_voc}, Eg={pred_bandgap}\n\n"
+                f"**Root Cause**: {root_cause}\n"
+                f"**Learning**: {learning}\n"
+                f"**Next Advice**: {advice}"
             )
             
             # Also store structured data for potential retrieval
@@ -352,16 +411,16 @@ You MUST extract and archive:
             
             structured_memory = {
                 "iteration": current_iteration,
-                "goal_summary": entry_json.get("goal_summary", ""),
-                "formula": recipe.get("formula", formula),
-                "method": recipe.get("method", method),
-                "synthesis_protocol": recipe.get("synthesis_protocol", synthesis_protocol),
-                "precursors": recipe.get("precursors", ""),
-                "pce": predictions.get("pce", predicted_pce),
-                "verdict": entry_json.get("verdict", "UNKNOWN"),
-                "aligned_with_goal": goal_alignment.get("aligned", False),
-                "learning": entry_json.get("critical_learning", ""),
-                "advice": entry_json.get("next_iteration_advice", ""),
+                "goal_summary": safe_str(entry_json.get("goal_summary"), ""),
+                "formula": recipe_formula,
+                "method": recipe_method,
+                "synthesis_protocol": safe_str(recipe.get("synthesis_protocol") or synthesis_protocol),
+                "precursors": recipe_precursors,
+                "pce": pred_pce,
+                "verdict": verdict,
+                "aligned_with_goal": bool(goal_alignment.get("aligned")),
+                "learning": learning,
+                "advice": advice,
                 # IMPORTANT: Include literature evidence (compact)
                 "literature_refs": literature_refs,
                 "literature_summary": lit_summary,  # Human-readable summary
@@ -372,9 +431,9 @@ You MUST extract and archive:
                 f"### Iteration {current_iteration} [PARSE_FAILED]\n"
                 f"**Formula**: {formula}\n"
                 f"**Method**: {method}\n"
-                f"**Protocol**: {synthesis_protocol[:200] if synthesis_protocol else 'N/A'}\n"
+                f"**Protocol**: {safe_truncate(synthesis_protocol, 200)}\n"
                 f"**PCE**: {predicted_pce}\n"
-                f"**Raw Response**: {response_text[:500]}"
+                f"**Raw Response**: {safe_truncate(response_text, 500)}"
             )
             # Parse data_context for literature references (fallback)
             literature_refs = self._extract_literature_references(data_context)

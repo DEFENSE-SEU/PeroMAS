@@ -24,6 +24,26 @@ from core.base_agent import BaseAgent
 from core.config import Settings
 
 
+# === Type-safe Helper Functions ===
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert any value to string, handling None, list, dict."""
+    if value is None:
+        return default
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) if value else default
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False) if value else default
+    return str(value)
+
+
+def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = "N/A") -> str:
+    """Safely truncate any value to max_len characters."""
+    str_value = safe_str(value, default)
+    if len(str_value) > max_len:
+        return str_value[:max_len] + suffix
+    return str_value
+
+
 # ============================================================================
 # MCP 服务器配置
 # ============================================================================
@@ -600,7 +620,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
             return {
                 "arxiv_id": paper_id,
                 "status": "parse_error",
-                "raw_response": response_text[:500]
+                "raw_response": safe_truncate(response_text, 500)
             }
 
     async def autonomous_thinking(
@@ -837,7 +857,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
         
         # === Display upstream context ===
         print(f"\n📊 Upstream Context:")
-        print(f"   ├─ 🎯 Goal: {(goal or '')[:80]}{'...' if len(goal or '') > 80 else ''}")
+        print(f"   ├─ 🎯 Goal: {safe_truncate(goal, 80)}")
         print(f"   ├─ 📝 Task: {my_task}")
         print(f"   └─ 📁 Output Dir: {self.local_papers_dir}")
 
@@ -869,7 +889,7 @@ You have full autonomy to decide what to do. Consider:
 
 4. **Extract** (`extract_data_from_papers`) - LLM-powered structured extraction
    - ⚠️ Only works on papers saved in `{self.local_papers_dir}`
-   - Call with: `extract_data_from_papers(goal="{(goal or '')[:100]}...", plan="...", papers_dir="{self.local_papers_dir}")`
+   - Call with: `extract_data_from_papers(goal="{safe_truncate(goal, 100)}...", plan="...", papers_dir="{self.local_papers_dir}")`
 
 ## ⚠️ CRITICAL REQUIREMENTS
 1. **NO DUPLICATE DOWNLOADS**: Skip papers already in the directory. Check paper_id against existing files before downloading.
@@ -946,7 +966,7 @@ Provide your findings in a structured format. If extracting data, include:
                     for line in lines:
                         if agent_name in line:
                             return line.replace(agent_name, "").strip(': -')
-                return str(plan)[:500]
+                return safe_truncate(plan, 500)
         
         # Extract agent-specific task from plan_data
         agent_tasks = plan_data.get("agent_tasks", {})
@@ -982,7 +1002,7 @@ Provide your findings in a structured format. If extracting data, include:
                             "papers_analyzed": extraction_data.get("total_papers", 0),
                             "extracted_data": extraction_data.get("extracted_data", []),
                             "papers_dir": extraction_data.get("papers_dir", ""),
-                            "synthesis": response[:1000] if response else "Data extracted successfully"
+                            "synthesis": safe_truncate(response, 1000, default="Data extracted successfully")
                         }
                         return json.dumps(context, indent=2, ensure_ascii=False)
                 except (json.JSONDecodeError, TypeError) as e:
@@ -999,7 +1019,7 @@ Provide your findings in a structured format. If extracting data, include:
         fallback = {
             "papers_analyzed": 0,
             "extracted_data": [],
-            "synthesis": response[:1000] if response else "No data extracted"
+            "synthesis": safe_truncate(response, 1000, default="No data extracted")
         }
         return json.dumps(fallback, indent=2, ensure_ascii=False)
 

@@ -28,6 +28,25 @@ from core.config import Settings
 from server_tools import ServerToolManager, ToolMode
 
 
+# === Type-safe Helper Functions ===
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert any value to string, handling None, list, dict."""
+    if value is None:
+        return default
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) if value else default
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False) if value else default
+    return str(value)
+
+
+def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = "N/A") -> str:
+    """Safely truncate any value to max_len characters."""
+    str_value = safe_str(value, default)
+    if len(str_value) > max_len:
+        return str_value[:max_len] + suffix
+    return str_value
+
 # =============================================================================
 # System Prompt
 # =============================================================================
@@ -633,7 +652,7 @@ Do NOT call any more tools - just analyze the results you already have."""
 {json.dumps(requirements, indent=2, ensure_ascii=False)}
 
 ## Knowledge Context (from DataAgent)
-{data_context[:5000] if data_context else "No specific literature data provided. Use fundamental chemical principles."}
+{safe_truncate(data_context, 5000, default="No specific literature data provided. Use fundamental chemical principles.")}
 
 # 🎯 YOUR MISSION
 Based on the task above, use the appropriate tools to complete the design:
@@ -914,7 +933,7 @@ Only include fields relevant to what you actually did. Don't include empty secti
         
         # Return minimal structure if parsing fails
         return {
-            "design_rationale": response[:500] if response else "No response",
+            "design_rationale": safe_truncate(response, 500, default="No response"),
             "parse_error": True
         }
 

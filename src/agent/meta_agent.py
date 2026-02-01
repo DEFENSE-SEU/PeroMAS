@@ -20,6 +20,26 @@ from core.base_agent import BaseAgent
 from core.config import Settings
 
 
+# === Type-safe Helper Functions ===
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert any value to string, handling None, list, dict."""
+    if value is None:
+        return default
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) if value else default
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False) if value else default
+    return str(value)
+
+
+def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = "N/A") -> str:
+    """Safely truncate any value to max_len characters."""
+    str_value = safe_str(value, default)
+    if len(str_value) > max_len:
+        return str_value[:max_len] + suffix
+    return str_value
+
+
 # === System Prompt ===
 SYSTEM_PROMPT = """You are MetaAgent - Chief Scientist of PSC_Agents.
 
@@ -457,10 +477,10 @@ FINAL_STATUS: [CONTINUE] or FINAL_STATUS: [FINISHED]
 {literature_section if literature_section else "No literature data was collected in this research."}
 
 # 🏆 BEST RESULT SUMMARY
-- **Formula**: {best_formula}
-- **Predicted PCE**: {best_pce}
-- **Synthesis Protocol**: {best_protocol[:500] if best_protocol else 'N/A'}
-- **Precursors**: {best_precursors}
+- **Formula**: {safe_str(best_formula, 'Unknown')}
+- **Predicted PCE**: {safe_str(best_pce, 'N/A')}
+- **Synthesis Protocol**: {safe_truncate(best_protocol, 500)}
+- **Precursors**: {safe_str(best_precursors, 'Not specified')}
 
 # YOUR TASK: Write a Comprehensive Final Research Conclusion
 
