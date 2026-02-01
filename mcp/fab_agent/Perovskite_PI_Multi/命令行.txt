@@ -1,0 +1,6 @@
+conda create -n psc-pi python=3.9 -y
+conda activate psc-pi
+
+
+pip install -r requirements.txt
+pip install cbfv==1.1.0 joblib==1.1.0 matplotlib==3.5.3 numpy==1.22.3 optuna==3.1.0 pandas==1.4.4 scikit-learn==1.1.2 scipy==1.9.1 seaborn==0.12.2 shap==0.41.0

@@ -1,0 +1,24 @@
+# 钙钛矿性质预测模型训练 - 依赖包
+# Python 3.10+ (与本地 psc_agent 环境兼容)
+
+# 核心依赖 (基于本地 psc_agent 环境版本)
+numpy>=1.26.0
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.5.0
+
+# 材料科学
+pymatgen>=2024.0.0
+
+# 机器学习优化
+optuna>=3.0.0
+
+# 模型保存
+joblib>=1.3.0
+
+# 进度条
+tqdm>=4.64.0
+
+# 可视化 (可选)
+matplotlib>=3.8.0
+seaborn>=0.13.0
