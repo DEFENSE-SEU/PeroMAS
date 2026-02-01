@@ -410,13 +410,14 @@ def extract_agent_outputs(final_state: dict) -> dict:
     # FabAgent - fab_results (完整)
     fab_results = final_state.get("fab_results", {})
     if fab_results and isinstance(fab_results, dict):
-        metrics = fab_results.get("predicted_metrics", fab_results.get("metrics", {}))
+        # Handle None values: get() returns None if key exists but value is None
+        metrics = fab_results.get("predicted_metrics") or fab_results.get("metrics") or {}
         outputs["FabAgent"] = {
             "composition": fab_results.get("composition", "N/A"),
-            "PCE_percent": metrics.get("PCE_percent", "N/A"),
-            "Voc_V": metrics.get("Voc_V", "N/A"),
-            "Jsc_mA_cm2": metrics.get("Jsc_mA_cm2", "N/A"),
-            "FF_percent": metrics.get("FF_percent", "N/A"),
+            "PCE_percent": metrics.get("PCE_percent", "N/A") if metrics else "N/A",
+            "Voc_V": metrics.get("Voc_V", "N/A") if metrics else "N/A",
+            "Jsc_mA_cm2": metrics.get("Jsc_mA_cm2", "N/A") if metrics else "N/A",
+            "FF_percent": metrics.get("FF_percent", "N/A") if metrics else "N/A",
             "full_results": fab_results,  # 完整结果
         }
     else:
