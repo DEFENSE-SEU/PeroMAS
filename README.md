@@ -284,10 +284,4 @@ MIT License
 ## Citation
 
 ```bibtex
-@software{psc_agents2024,
-  title={PSC_Agents: Multi-Agent System for Autonomous Perovskite Solar Cell Research},
-  author={PSC_Agents Team},
-  year={2024},
-  url={https://github.com/yishu031031/perovskite_agent}
-}
 ```
