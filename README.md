@@ -1,4 +1,4 @@
-# PSC_Agents: Multi-Agent System for Autonomous Perovskite Solar Cell Research
+# PeroMAS: A Multi-agent System of Perovskite Material Discovery
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-green.svg)](https://langchain-ai.github.io/langgraph/)
@@ -8,7 +8,7 @@
 
 ## 📖 Overview
 
-**PSC_Agents** is an autonomous multi-agent system designed to accelerate perovskite solar cell (PSC) research through AI-driven automation. The system orchestrates six specialized AI agents that collaborate to execute a complete research pipeline:
+**PeroMAS** is an autonomous multi-agent system designed to accelerate perovskite solar cell (PSC) research through AI-driven automation. The system orchestrates six specialized AI agents that collaborate to execute a complete research pipeline:
 
 ```
 Literature Review → Material Design → Performance Prediction → Analysis → Knowledge Archival → Iterative Optimization
@@ -29,45 +29,7 @@ The system employs a **cyclic research workflow** based on the PDCA (Plan-Do-Che
 
 ## 🏗️ System Architecture
 
-### High-Level Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              PSC_Agents System Architecture                          │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
-│  │                           LangGraph Workflow Engine                          │   │
-│  │                                                                              │   │
-│  │    ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐    │   │
-│  │    │ MetaAgent  │───►│ DataAgent  │───►│DesignAgent │───►│ FabAgent   │    │   │
-│  │    │  (Plan)    │    │ (Retrieve) │    │  (Design)  │    │ (Predict)  │    │   │
-│  │    └────────────┘    └────────────┘    └────────────┘    └────────────┘    │   │
-│  │          ▲                                                      │          │   │
-│  │          │                                                      ▼          │   │
-│  │    ┌─────┴──────┐                                        ┌────────────┐    │   │
-│  │    │MemoryAgent │◄───────────────────────────────────────│AnalysisAgent│   │   │
-│  │    │ (Archive)  │                                        │  (Check)   │    │   │
-│  │    └────────────┘                                        └────────────┘    │   │
-│  │                                                                              │   │
-│  └─────────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
-│  │                              Tool Layer (MCP Protocol)                       │   │
-│  │                                                                              │   │
-│  │    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │   │
-│  │    │ ArXiv MCP   │  │  MatterGen  │  │   CSLLM     │  │ Local Tools │      │   │
-│  │    │  Server     │  │   Server    │  │   Server    │  │ (RF, SHAP)  │      │   │
-│  │    └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘      │   │
-│  └─────────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
-│  │                              LLM Backend Layer                               │   │
-│  │    OpenAI (GPT-4o) │ Anthropic (Claude) │ Google (Gemini) │ DeepSeek │ Ollama │   │
-│  └─────────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                     │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-```
+![PeroMAS System Architecture](img/Framework.png)
 
 ### Three-Layer Design
 
@@ -86,9 +48,9 @@ The system consists of six specialized agents, each responsible for a specific p
 | Agent | Role | Input | Output |
 |-------|------|-------|--------|
 | **MetaAgent** | Chief Scientist | goal, memory_log, analysis_report | Strategic plan with hypothesis and agent tasks |
-| **DataAgent** | Literature Intelligence | goal, plan | Literature findings and extracted data |
+| **Miner Agent** | Literature Intelligence | goal, plan | Literature findings and extracted data |
 | **DesignAgent** | Experimental Designer | goal, plan, data_context | Material composition and synthesis recipe |
-| **FabAgent** | Virtual Fabrication | experimental_params | Predicted performance metrics (PCE, Voc, Jsc, FF) |
+| **Emulator Agent** | Virtual Fabrication | experimental_params | Predicted performance metrics (PCE, Voc, Jsc, FF) |
 | **AnalysisAgent** | Lead Analyst | all upstream outputs | Gap analysis and root cause diagnosis |
 | **MemoryAgent** | Knowledge Keeper | all fields | Archived knowledge capsule for next iteration |
 
@@ -96,11 +58,11 @@ The system consists of six specialized agents, each responsible for a specific p
 
 - **MetaAgent**: Pure reasoning agent for strategic planning, hypothesis generation, and termination decisions. No tools - relies entirely on LLM reasoning.
 
-- **DataAgent**: Searches scientific literature (arXiv), downloads papers, and extracts structured experimental data using LLM-powered extraction.
+- **Miner Agent**: Searches scientific literature (arXiv), downloads papers, and extracts structured experimental data using LLM-powered extraction.
 
 - **DesignAgent**: Generates candidate material compositions using MatterGen, verifies synthesizability using CSLLM (TPR=98.8%), and predicts synthesis routes and precursors.
 
-- **FabAgent**: Predicts solar cell performance using trained Random Forest models with Composition-Based Feature Vectors (CBFV).
+- **Emulator Agent**: Predicts solar cell performance using trained Random Forest models with Composition-Based Feature Vectors (CBFV).
 
 - **AnalysisAgent**: Performs chemical analysis (stoichiometry, organic cation properties), mechanism diagnosis, and SHAP-based feature importance analysis.
 
@@ -122,7 +84,7 @@ Entry Point ──► MetaAgent ──► [Termination Check]
                 [Continue]                        [End]
                     │
                     ▼
-              DataAgent ──► DesignAgent ──► FabAgent ──► AnalysisAgent ──► MemoryAgent
+              Miner Agent ──► DesignAgent ──► Emulator Agent ──► AnalysisAgent ──► MemoryAgent
                                                                                │
                                                                                ▼
                                                                          Loop back to MetaAgent
@@ -142,9 +104,9 @@ All agents read from and write to a shared state dictionary:
 |-------|--------|-------------|
 | `goal` | User | Research objective |
 | `plan` | MetaAgent | Strategic plan with hypothesis and tasks |
-| `data_context` | DataAgent | Literature findings |
+| `data_context` | Miner Agent | Literature findings |
 | `experimental_params` | DesignAgent | Material recipe |
-| `fab_results` | FabAgent | Predicted metrics |
+| `fab_results` | Emulator Agent | Predicted metrics |
 | `analysis_report` | AnalysisAgent | Gap analysis |
 | `memory_log` | MemoryAgent | Archived knowledge (append-only) |
 | `current_iteration` | Workflow | Loop counter |
@@ -155,13 +117,13 @@ All agents read from and write to a shared state dictionary:
 ## 📁 Project Structure
 
 ```
-PSC_Agents/
+PeroMAS/
 ├── src/
 │   ├── agent/                    # Agent implementations
 │   │   ├── meta_agent.py         # Strategic planning
 │   │   ├── data_agent.py         # Literature retrieval
 │   │   ├── design_agent.py       # Material design
-│   │   ├── fab_agent.py          # Performance prediction
+│   │   ├── fab_agent.py          # Emulator agent (performance prediction)
 │   │   ├── analysis_agent.py     # Gap analysis
 │   │   └── memory_agent.py       # Knowledge archival
 │   │
@@ -203,9 +165,9 @@ Output: Optimized Material Recipe + Performance Prediction
 1. Initialize state with goal
 2. WHILE not terminated AND iteration < max_iterations:
    a. MetaAgent: Analyze memory → Generate hypothesis → Assign tasks
-   b. DataAgent: Search literature → Extract relevant data
+    b. Miner Agent: Search literature → Extract relevant data
    c. DesignAgent: Generate candidates → Verify synthesizability
-   d. FabAgent: Predict performance using ML models
+    d. Emulator Agent: Predict performance using ML models
    e. AnalysisAgent: Compare with target → Diagnose gaps
    f. MemoryAgent: Archive knowledge capsule
    g. iteration += 1
@@ -243,7 +205,7 @@ Output: Optimized Material Recipe + Performance Prediction
 
 ```bash
 git clone https://github.com/yishu031031/perovskite_agent.git
-cd PSC_Agents
+cd PeroMAS
 pip install -r requirements.txt
 ```
 

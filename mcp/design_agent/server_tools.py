@@ -4,7 +4,7 @@ Server Tools Interface for DesignAgent
 Manages tools that run on remote servers (MatterGen, CSLLM).
 Supports two modes:
 1. Interactive Mode: Wait for user to input server results via terminal
-2. Mock Mode: Use LLM (Gemini Flash) to generate scientifically plausible results
+2. Mock Mode: Use LLM (Claude Sonnet 4.5) to generate scientifically plausible results
 
 Mock 模式现在由 LLM 驱动，可以全自动运行 workflow。
 
@@ -37,16 +37,16 @@ class ToolMode(Enum):
 # Global LLM client for mock mode (lazy initialization)
 _mock_llm_client: Optional["OpenAI"] = None
 
-# Fixed model for mock mode - Gemini Flash for speed
-MOCK_LLM_MODEL = "google/gemini-3-pro-preview"
+# Fixed model for mock mode - Claude Sonnet 4.5 for quality
+MOCK_LLM_MODEL = "anthropic/claude-sonnet-4.5"
 
 
 def _get_mock_llm_client() -> Optional["OpenAI"]:
-    """Get LLM client for mock mode using Google API."""
+    """Get LLM client for mock mode using Anthropic API."""
     global _mock_llm_client
     if _mock_llm_client is None and HAS_OPENAI:
-        api_key = os.getenv("GOOGLE_API_KEY", "")
-        base_url = os.getenv("GOOGLE_BASE_URL", "")
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        base_url = os.getenv("ANTHROPIC_BASE_URL", "")
         
         if api_key and base_url:
             _mock_llm_client = OpenAI(api_key=api_key, base_url=base_url)

@@ -90,6 +90,9 @@ dataset/
 # src/test 目录（测试文件，不需要上传）
 src/test/
 
+# experiment 目录（实验文件不需要上传）
+experiment/
+
 # CSLLM 相关（大型模型/数据）
 mcp/design_agent/CSLLM/
 
