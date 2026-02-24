@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 test_single_target_models.py
-测试单属性训练的模型性能
+Test performance of single-target trained models.
 """
 
 import os
@@ -20,7 +20,7 @@ MODEL_DIR = "data/model/single_target"
 
 
 def load_features(feature_mode, split_way=1, per_elem_prop="oliynyk", fill_way="zero"):
-    """加载缓存的特征"""
+    """Load cached features."""
     csr_path = f"data/csr/{feature_mode}_sp{split_way}_{per_elem_prop}_{fill_way}_csr.npz"
     col_path = f"data/csr/{feature_mode}_sp{split_way}_{per_elem_prop}_{fill_way}_columns.npy"
     
@@ -32,12 +32,12 @@ def load_features(feature_mode, split_way=1, per_elem_prop="oliynyk", fill_way="
 
 
 def test_all_models():
-    """测试所有训练好的模型"""
+    """Test all trained models."""
     print("=" * 70)
     print("Testing Single-Target Models")
     print("=" * 70)
     
-    # 加载数据
+    # Load data.
     raw_file_name = "data/raw/full_dataset.csv"
     df_raw = pd.read_csv(raw_file_name)
     print(f"Raw data: {df_raw.shape}")
@@ -66,24 +66,24 @@ def test_all_models():
                     print(f"  {target}: Model not found")
                     continue
                 
-                # 过滤有效数据
+                # Filter valid data.
                 valid_idx = df_raw[target].notna()
                 X = X_full.iloc[valid_idx.values].reset_index(drop=True)
                 y = df_raw.loc[valid_idx, target].reset_index(drop=True)
                 
-                # 划分数据集 (使用相同的随机种子)
+                # Split datasets (same random seed).
                 X_train, X_test, y_train, y_test = train_test_split(
                     X, y, test_size=0.2, random_state=42
                 )
                 
-                # 加载模型
+                # Load model.
                 model = joblib.load(model_path)
                 
-                # 预测
+                # Predict.
                 y_train_pred = model.predict(X_train)
                 y_test_pred = model.predict(X_test)
                 
-                # 计算指标
+                # Compute metrics.
                 r2_train = r2_score(y_train, y_train_pred)
                 r2_test = r2_score(y_test, y_test_pred)
                 rmse_train = np.sqrt(mean_squared_error(y_train, y_train_pred))
@@ -104,7 +104,7 @@ def test_all_models():
                     'MAE_test': mae_test
                 })
     
-    # 输出汇总
+    # Output summary.
     if results:
         results_df = pd.DataFrame(results)
         print("\n" + "=" * 70)
@@ -123,13 +123,13 @@ def test_all_models():
                     avg_rmse = subset['RMSE_test'].mean()
                     print(f"  {model_type}: Avg R2={avg_r2:.4f}, Avg RMSE={avg_rmse:.4f}")
         
-        # 保存结果
+        # Save results.
         results_path = "data/results/test_single_target_results.csv"
         os.makedirs(os.path.dirname(results_path), exist_ok=True)
         results_df.to_csv(results_path, index=False)
         print(f"\nResults saved to: {results_path}")
         
-        # 打印完整表格
+        # Print full table.
         print("\nFull Results Table:")
         print(results_df.to_string())
     

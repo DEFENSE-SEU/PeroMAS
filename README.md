@@ -204,7 +204,7 @@ Output: Optimized Material Recipe + Performance Prediction
 ### Installation
 
 ```bash
-git clone https://github.com/yishu031031/perovskite_agent.git
+git clone https://github.com/DEFENSE-SEU/PeroMAS.git
 cd PeroMAS
 pip install -r requirements.txt
 ```
@@ -246,4 +246,13 @@ MIT License
 ## Citation
 
 ```bibtex
+@misc{wang2026peromasmultiagentperovskitematerial,
+      title={PeroMAS: A Multi-agent System of Perovskite Material Discovery}, 
+      author={Yishu Wang and Wei Liu and Yifan Li and Shengxiang Xu and Xujie Yuan and Ran Li and Yuyu Luo and Jia Zhu and Shimin Di and Min-Ling Zhang and Guixiang Li},
+      year={2026},
+      eprint={2602.13312},
+      archivePrefix={arXiv},
+      primaryClass={cs.MA},
+      url={https://arxiv.org/abs/2602.13312}, 
+}
 ```

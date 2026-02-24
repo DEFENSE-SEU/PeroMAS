@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 perovskite_predictor.py
-钙钛矿太阳能电池性质预测器 - 用于 FabAgent 集成
+Perovskite solar cell property predictor for FabAgent integration.
 
-提供基于 RF 模型的性质预测功能:
-- PCE (光电转换效率)
-- Voc (开路电压)
-- Jsc (短路电流密度)
-- FF (填充因子)
-- dft_band_gap (DFT带隙)
-- energy_above_hull (凸包上方能量)
+Provides RF model-based property prediction:
+- PCE (power conversion efficiency)
+- Voc (open-circuit voltage)
+- Jsc (short-circuit current density)
+- FF (fill factor)
+- dft_band_gap (DFT band gap)
+- energy_above_hull (energy above hull)
 
 Author: PSC_Agents Team
 """
@@ -22,14 +22,14 @@ from typing import Dict, List, Optional, Any
 import warnings
 warnings.filterwarnings('ignore')
 
-# 设置路径
+# Path setup
 PREDICTOR_DIR = Path(__file__).parent.absolute()
 MODEL_PROJECT_DIR = PREDICTOR_DIR / "Perovskite_PI_Multi"
 
-# 添加模型项目到路径
+# Add model project to path
 sys.path.insert(0, str(MODEL_PROJECT_DIR))
 
-# 延迟导入，避免启动时加载大量依赖
+# Lazy imports to avoid heavy dependencies at startup
 _numpy = None
 _pandas = None
 _joblib = None
@@ -38,7 +38,7 @@ _PYMATGEN_AVAILABLE = False
 
 
 def _lazy_import():
-    """延迟导入依赖"""
+    """Lazy import dependencies."""
     global _numpy, _pandas, _joblib, _CBFV_AVAILABLE, _PYMATGEN_AVAILABLE
     
     if _numpy is None:
@@ -49,14 +49,14 @@ def _lazy_import():
         _pandas = pd
         _joblib = joblib
         
-        # 检查 CBFV
+        # Check CBFV
         try:
             from revised_CBFV import composition
             _CBFV_AVAILABLE = True
         except ImportError:
             _CBFV_AVAILABLE = False
         
-        # 检查 pymatgen
+        # Check pymatgen
         try:
             from pymatgen.io.cif import CifParser
             from pymatgen.core.structure import Structure
@@ -66,15 +66,15 @@ def _lazy_import():
 
 
 # =============================================================================
-# 常量定义
+# Constants
 # =============================================================================
 
 MODEL_DIR = MODEL_PROJECT_DIR / "data" / "model" / "single_target"
 
-# 所有支持的目标属性
+# All supported target properties
 ALL_TARGETS = ["pce", "voc", "jsc", "ff", "dft_band_gap", "energy_above_hull"]
 
-# 目标属性信息
+# Target metadata
 TARGET_INFO = {
     "pce": {"name": "PCE", "unit": "%", "full_name": "Power Conversion Efficiency"},
     "voc": {"name": "Voc", "unit": "V", "full_name": "Open-Circuit Voltage"},
@@ -84,26 +84,26 @@ TARGET_INFO = {
     "energy_above_hull": {"name": "E_hull", "unit": "eV/atom", "full_name": "Energy Above Hull"}
 }
 
-# 默认模型类型
+# Default model type
 DEFAULT_MODEL_TYPE = "RF"
 
 
 # =============================================================================
-# 特征生成函数
+# Feature generation functions
 # =============================================================================
 
 def generate_cbfv_features(composition_str: str, elem_prop: str = "oliynyk"):
-    """生成基于成分的特征向量 (CBFV)"""
+    """Generate composition-based feature vector (CBFV)."""
     _lazy_import()
     
     if not _CBFV_AVAILABLE:
         print("Warning: CBFV not available, using zero features")
         return _numpy.zeros(264)
     
-    # 清理输入
+    # Normalize input.
     composition_str = composition_str.replace("|", "")
     
-    # 加载缩写对照表
+    # Load abbreviation mapping.
     corr_path = MODEL_PROJECT_DIR / "revised_CBFV" / "Perovskite_a_ion_correspond_arr.csv"
     if corr_path.exists():
         try:
@@ -127,14 +127,14 @@ def generate_cbfv_features(composition_str: str, elem_prop: str = "oliynyk"):
 
 
 def generate_cif_features(cif_content: str):
-    """从 CIF 文件内容生成晶体结构特征"""
+    """Generate structure features from CIF content."""
     _lazy_import()
     
     if not _PYMATGEN_AVAILABLE:
         print("Warning: pymatgen not available, using zero features")
         return _numpy.zeros(9)
     
-    # 修复转义字符
+    # Fix escaped newlines.
     if "\\n" in cif_content:
         cif_content = cif_content.replace("\\n", "\n")
     
@@ -167,16 +167,16 @@ def generate_cif_features(cif_content: str):
 
 
 # =============================================================================
-# 预测器类
+# Predictor class
 # =============================================================================
 
 class PerovskitePredictor:
-    """钙钛矿太阳能电池性质预测器"""
+    """Perovskite solar cell property predictor."""
     
-    _instance = None  # 单例模式
+    _instance = None  # Singleton instance.
     
     def __new__(cls, *args, **kwargs):
-        """单例模式，避免重复加载模型"""
+        """Singleton to avoid reloading models."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
@@ -184,10 +184,10 @@ class PerovskitePredictor:
     
     def __init__(self, model_type: str = DEFAULT_MODEL_TYPE):
         """
-        初始化预测器
+        Initialize the predictor.
         
         Args:
-            model_type: 模型类型 (RF, GBDT, NN)，默认 RF
+            model_type: Model type (RF, GBDT, NN). Default: RF.
         """
         if self._initialized and self.model_type == model_type:
             return
@@ -201,7 +201,7 @@ class PerovskitePredictor:
         self._scan_and_load_models()
     
     def _scan_and_load_models(self):
-        """扫描并加载模型"""
+        """Scan and load models."""
         print(f"[PerovskitePredictor] Loading {self.model_type} models...")
         
         for input_mode in ["comp_only", "cif_only"]:
@@ -218,7 +218,7 @@ class PerovskitePredictor:
                     print(f"  - Not found: {model_path.name}")
     
     def get_available_targets(self, input_mode: str = "comp_only") -> List[str]:
-        """获取可用的预测目标"""
+        """Get available prediction targets."""
         return list(self.models.get(input_mode, {}).keys())
     
     def predict_from_composition(
@@ -227,19 +227,19 @@ class PerovskitePredictor:
         targets: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        根据分子式预测性质
+        Predict properties from a formula.
         
         Args:
-            composition: 分子式字符串，如 "CsPbI3", "FA0.25MA0.75PbI3"
-            targets: 要预测的目标列表，默认预测所有
+            composition: Formula string, e.g., "CsPbI3", "FA0.25MA0.75PbI3"
+            targets: Target list to predict (defaults to all).
             
         Returns:
-            预测结果字典
+            Prediction results dict.
         """
         if targets is None:
             targets = ALL_TARGETS
         
-        # 生成特征
+        # Generate features.
         features = generate_cbfv_features(composition)
         X = features.reshape(1, -1)
         
@@ -274,19 +274,19 @@ class PerovskitePredictor:
         targets: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        根据 CIF 结构预测性质
+        Predict properties from CIF structure.
         
         Args:
-            cif_content: CIF 文件内容字符串
-            targets: 要预测的目标列表，默认预测所有
+            cif_content: CIF content string.
+            targets: Target list to predict (defaults to all).
             
         Returns:
-            预测结果字典
+            Prediction results dict.
         """
         if targets is None:
             targets = ALL_TARGETS
         
-        # 生成特征
+        # Generate features.
         features = generate_cif_features(cif_content)
         X = features.reshape(1, -1)
         
@@ -323,26 +323,26 @@ class PerovskitePredictor:
         targets: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        统一预测接口
+        Unified prediction interface.
         
         Args:
-            composition: 分子式字符串
-            cif_content: CIF 内容字符串
-            cif_file: CIF 文件路径
-            targets: 预测目标列表
+            composition: Formula string.
+            cif_content: CIF content string.
+            cif_file: CIF file path.
+            targets: Target list.
             
         Returns:
-            预测结果
+            Prediction results.
         """
-        # 优先使用分子式
+        # Prefer formula input.
         if composition:
             return self.predict_from_composition(composition, targets)
         
-        # 其次使用 CIF
+        # Otherwise use CIF content.
         if cif_content:
             return self.predict_from_cif(cif_content, targets)
         
-        # 从文件读取 CIF
+        # Read CIF from file.
         if cif_file and os.path.exists(cif_file):
             with open(cif_file, 'r') as f:
                 cif_content = f.read()
@@ -352,7 +352,7 @@ class PerovskitePredictor:
     
     def format_results_for_visualization(self, results: Dict[str, Any]) -> Dict[str, float]:
         """
-        将预测结果格式化为可视化工具所需的格式
+        Format predictions for visualization tools.
         
         Returns:
             {PCE_percent, Voc_V, Jsc_mA_cm2, FF_percent, ...}
@@ -360,7 +360,7 @@ class PerovskitePredictor:
         predictions = results.get("predictions", {})
         formatted = {}
         
-        # 映射到可视化格式
+        # Map to visualization format.
         mapping = {
             "pce": "PCE_percent",
             "voc": "Voc_V",
@@ -380,14 +380,14 @@ class PerovskitePredictor:
 
 
 # =============================================================================
-# 便捷函数
+# Convenience functions
 # =============================================================================
 
 _predictor_instance: Optional[PerovskitePredictor] = None
 
 
 def get_predictor(model_type: str = DEFAULT_MODEL_TYPE) -> PerovskitePredictor:
-    """获取预测器实例（单例）"""
+    """Get predictor instance (singleton)."""
     global _predictor_instance
     if _predictor_instance is None or _predictor_instance.model_type != model_type:
         _predictor_instance = PerovskitePredictor(model_type)
@@ -402,21 +402,21 @@ def predict_perovskite_properties(
     model_type: str = DEFAULT_MODEL_TYPE
 ) -> Dict[str, Any]:
     """
-    预测钙钛矿太阳能电池性质 - 主要入口函数
+    Predict perovskite solar cell properties (main entry point).
     
     Args:
-        composition: 分子式，如 "CsPbI3", "FA0.25MA0.75PbI3", "MAPbI3"
-        cif_content: CIF 文件内容字符串
-        cif_file: CIF 文件路径
-        targets: 预测目标列表，可选值: pce, voc, jsc, ff, dft_band_gap, energy_above_hull
-        model_type: 模型类型，默认 "RF"
+        composition: Formula string, e.g., "CsPbI3", "FA0.25MA0.75PbI3", "MAPbI3"
+        cif_content: CIF content string.
+        cif_file: CIF file path.
+        targets: Target list, e.g., pce, voc, jsc, ff, dft_band_gap, energy_above_hull.
+        model_type: Model type (default: "RF").
         
     Returns:
-        预测结果字典，包含 predictions 和 formatted_for_viz
+        Prediction results dict with predictions and formatted_for_viz.
         
     Example:
         >>> result = predict_perovskite_properties(composition="CsPbI3")
-        >>> print(result["predictions"]["pce"]["value"])  # PCE 预测值
+        >>> print(result["predictions"]["pce"]["value"])  # PCE prediction
     """
     predictor = get_predictor(model_type)
     results = predictor.predict(
@@ -426,10 +426,10 @@ def predict_perovskite_properties(
         targets=targets
     )
     
-    # 添加格式化后的结果和状态
+    # Add formatted results and status.
     if "predictions" in results:
         results["formatted_for_viz"] = predictor.format_results_for_visualization(results)
-        # 检查是否有有效预测
+        # Check for valid predictions.
         has_valid_prediction = any(
             isinstance(p, dict) and "value" in p 
             for p in results["predictions"].values()
@@ -442,7 +442,7 @@ def predict_perovskite_properties(
 
 
 # =============================================================================
-# 测试
+# Tests
 # =============================================================================
 
 if __name__ == "__main__":
@@ -450,7 +450,7 @@ if __name__ == "__main__":
     print("Testing PerovskitePredictor")
     print("=" * 60)
     
-    # 测试分子式预测
+    # Test formula prediction.
     test_compositions = ["CsPbI3", "MAPbI3", "FA0.25MA0.75PbI3"]
     
     for comp in test_compositions:

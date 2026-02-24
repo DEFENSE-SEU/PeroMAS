@@ -1,10 +1,10 @@
 """
 FabAgent Visualization Tools - Enhanced Version
 
-支持的可视化类型:
-1. visualize_predictions - 单材料预测结果条形图
-2. visualize_series_trend - 系列材料趋势图（折线图）
-3. visualize_comparison - 多材料对比条形图（分组）
+Supported visualization types:
+1. visualize_predictions - single-material prediction bar chart
+2. visualize_series_trend - series trend line chart
+3. visualize_comparison - multi-material comparison (grouped)
 
 Author: PSC_Agents Team
 Date: 2026-01-30
@@ -33,19 +33,19 @@ except ImportError:
 
 
 # =============================================================================
-# 配置
+# Configuration
 # =============================================================================
 
-# 性能指标配置 - 同时支持新旧两种命名格式
+# Metric configuration - supports new and legacy names
 METRIC_CONFIG = {
-    # 新格式 (小写)
+    # New format (lowercase)
     "pce": {"label": "PCE", "unit": "%", "color": "#2ecc71", "max_ref": 30},
     "voc": {"label": "Voc", "unit": "V", "color": "#3498db", "max_ref": 1.3},
     "jsc": {"label": "Jsc", "unit": "mA/cm2", "color": "#e74c3c", "max_ref": 30},
     "ff": {"label": "FF", "unit": "%", "color": "#9b59b6", "max_ref": 90},
     "dft_band_gap": {"label": "Band Gap", "unit": "eV", "color": "#f39c12", "max_ref": 3.0},
     "energy_above_hull": {"label": "E_hull", "unit": "eV/atom", "color": "#1abc9c", "max_ref": 0.5},
-    # 旧格式 (兼容)
+    # Legacy format (compatible)
     "PCE_percent": {"label": "PCE", "unit": "%", "color": "#2ecc71", "max_ref": 30},
     "Voc_V": {"label": "Voc", "unit": "V", "color": "#3498db", "max_ref": 1.3},
     "Jsc_mA_cm2": {"label": "Jsc", "unit": "mA/cm2", "color": "#e74c3c", "max_ref": 30},
@@ -54,7 +54,7 @@ METRIC_CONFIG = {
     "T80_hours": {"label": "T80", "unit": "hours", "color": "#95a5a6", "max_ref": 2000},
 }
 
-# 旧格式到新格式的映射
+# Legacy-to-new metric mapping
 LEGACY_METRIC_MAP = {
     "PCE_percent": "pce",
     "Voc_V": "voc",
@@ -67,15 +67,15 @@ LEGACY_METRIC_MAP = {
 
 class PredictionVisualizer:
     """
-    增强版可视化工具
+    Enhanced visualization utilities.
     
-    支持:
-    - 单材料预测结果条形图 (visualize_predictions)
-    - 系列材料趋势图/折线图 (visualize_series_trend)  
-    - 多材料对比条形图 (visualize_comparison)
+    Supports:
+    - Single-material prediction bar charts (visualize_predictions)
+    - Series trend line charts (visualize_series_trend)
+    - Multi-material comparison bar charts (visualize_comparison)
     """
     
-    # 兼容旧代码
+    # Legacy compatibility.
     METRIC_CONFIG = METRIC_CONFIG
     
     def __init__(self, output_dir: str = "prediction_plots"):
@@ -89,7 +89,7 @@ class PredictionVisualizer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
     # =========================================================================
-    # 1. 单材料预测结果条形图 (保持向后兼容)
+    # 1. Single-material prediction bar chart (backward compatible)
     # =========================================================================
     def visualize_predictions(
         self,
@@ -100,7 +100,7 @@ class PredictionVisualizer:
         use_plotly: bool = True,
     ) -> dict[str, Any]:
         """
-        创建单材料预测结果条形图
+        Create a single-material prediction bar chart.
         
         Args:
             predicted_metrics: Dict of metric_name -> predicted_value
@@ -124,7 +124,7 @@ class PredictionVisualizer:
             }
     
     # =========================================================================
-    # 2. 系列材料趋势图（折线图）- 新增核心功能
+    # 2. Series trend line chart (core feature)
     # =========================================================================
     def visualize_series_trend(
         self,
@@ -135,22 +135,22 @@ class PredictionVisualizer:
         save_path: str | None = None,
     ) -> Dict[str, Any]:
         """
-        创建系列材料趋势图（折线图）
+        Create a series trend line chart.
         
-        用于展示某个性能指标随组分变化的趋势，例如：
-        - PCE 随 Cs 含量的变化
-        - Band Gap 随 Br 比例的变化
-        - Voc 随混合阳离子比例的变化
+        Shows how a metric changes with composition, for example:
+        - PCE vs Cs content
+        - Band gap vs Br ratio
+        - Voc vs mixed-cation ratio
         
         Args:
-            series_data: 系列数据列表，每项包含:
-                - x_value: X轴数值（如 Cs 含量 0, 0.1, 0.2...）
-                - x_label: X轴标签（如 "FAPbI3", "FA0.9Cs0.1PbI3"...）
-                - predictions: 预测结果字典
-            x_label: X轴标题
-            y_metric: 要绘制的Y轴指标 (pce, voc, jsc, ff, dft_band_gap, energy_above_hull)
-            title: 图表标题
-            save_path: 自定义保存路径
+            series_data: List of series data items:
+                - x_value: X-axis value (e.g., Cs content 0, 0.1, 0.2...)
+                - x_label: X-axis label (e.g., "FAPbI3", "FA0.9Cs0.1PbI3"...)
+                - predictions: Predictions dictionary
+            x_label: X-axis title
+            y_metric: Y-axis metric (pce, voc, jsc, ff, dft_band_gap, energy_above_hull)
+            title: Chart title
+            save_path: Custom save path
             
         Example:
             series_data = [
@@ -163,12 +163,12 @@ class PredictionVisualizer:
             Dict with status, file_path, trend analysis
         """
         if not HAS_MATPLOTLIB and not HAS_PLOTLY:
-            return {"status": "error", "message": "需要安装 matplotlib 或 plotly"}
+            return {"status": "error", "message": "Matplotlib or Plotly is required."}
         
         if not series_data:
-            return {"status": "error", "message": "没有系列数据"}
+            return {"status": "error", "message": "No series data provided."}
         
-        # 提取数据
+        # Extract data.
         x_values = []
         y_values = []
         x_labels = []
@@ -178,11 +178,11 @@ class PredictionVisualizer:
             x_lab = item.get("x_label", str(x_val))
             predictions = item.get("predictions", {})
             
-            # 检查 predictions 是否存在
+            # Skip items without predictions.
             if not predictions:
                 continue
             
-            # 获取Y值 - 支持多种格式
+            # Extract Y value (supports multiple formats).
             y_val = self._extract_metric_value(predictions, y_metric)
             
             if y_val is not None:
@@ -191,21 +191,30 @@ class PredictionVisualizer:
                 x_labels.append(x_lab)
         
         if not y_values:
-            # 给出更详细的错误信息
+            # Provide a more detailed error message.
             missing_predictions = sum(1 for item in series_data if not item.get("predictions"))
             if missing_predictions == len(series_data):
                 return {
-                    "status": "error", 
-                    "message": f"所有 series_data 项都缺少 'predictions' 字段。请确保每项都包含预测结果，格式如: {{'x_value': 0, 'x_label': 'MAPbI3', 'predictions': {{'pce': {{'value': 19.1}}, 'voc': {{'value': 1.05}}, ...}}}}"
+                    "status": "error",
+                    "message": (
+                        "All series_data items are missing the 'predictions' field. "
+                        "Ensure each item includes predictions, e.g.: "
+                        "{'x_value': 0, 'x_label': 'MAPbI3', 'predictions': {'pce': {'value': 19.1}, 'voc': {'value': 1.05}, ...}}"
+                    ),
                 }
-            return {"status": "error", "message": f"没有找到 {y_metric} 的有效数据。请检查 predictions 字典中是否包含该指标。"}
+            return {
+                "status": "error",
+                "message": (
+                    f"No valid {y_metric} data found. Check that the predictions dict includes this metric."
+                ),
+            }
         
-        # 获取指标配置
+        # Metric configuration.
         cfg = METRIC_CONFIG.get(y_metric, {"label": y_metric, "unit": "", "color": "#3498db"})
         y_axis_label = f"{cfg['label']} ({cfg['unit']})"
         color = cfg['color']
         
-        # 生成文件名
+        # Build output filename.
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if save_path:
             file_path = Path(save_path)
@@ -213,40 +222,40 @@ class PredictionVisualizer:
             safe_title = title.replace(" ", "_").replace("/", "_")[:30]
             file_path = self.output_dir / f"trend_{safe_title}_{timestamp}.png"
         
-        # 绘图
+        # Render plot.
         if HAS_PLOTLY:
             return self._line_chart_plotly(x_values, y_values, x_labels, x_label, y_axis_label, title, color, file_path)
         else:
             return self._line_chart_matplotlib(x_values, y_values, x_labels, x_label, y_axis_label, title, color, file_path)
     
     # =========================================================================
-    # 3. 多材料对比条形图（分组）- 增强版
+    # 3. Multi-material comparison (grouped) - enhanced
     # =========================================================================
     def visualize_comparison(
         self,
         materials_data: List[Dict[str, Any]] = None,
-        results_list: list[dict[str, Any]] = None,  # 兼容旧接口
+        results_list: list[dict[str, Any]] = None,  # Legacy interface
         metrics: List[str] = None,
-        metric_key: str = "pce",  # 兼容旧接口
+        metric_key: str = "pce",  # Legacy interface
         title: str = "Materials Comparison",
         save_path: str | None = None,
     ) -> Dict[str, Any]:
         """
-        创建多材料对比条形图（分组对比）
+        Create a grouped bar chart to compare multiple materials.
         
-        用于对比多种材料的性能，例如：
-        - MAPbI3 vs FAPbI3 vs CsPbI3 的 PCE 对比
-        - 不同 Cs 含量配方的多指标对比
+        Example use cases:
+        - PCE comparison: MAPbI3 vs FAPbI3 vs CsPbI3
+        - Multi-metric comparison across Cs content recipes
         
         Args:
-            materials_data: 材料数据列表，每项包含:
-                - name: 材料名称
-                - predictions: 预测结果字典
-            results_list: 兼容旧接口，同 materials_data
-            metrics: 要对比的指标列表，默认 ["pce", "voc", "jsc", "ff"]
-            metric_key: 兼容旧接口，单指标对比时使用
-            title: 图表标题
-            save_path: 自定义保存路径
+            materials_data: List of material items:
+                - name: Material name
+                - predictions: Predictions dictionary
+            results_list: Legacy interface (same as materials_data)
+            metrics: Metrics to compare, default ["pce", "voc", "jsc", "ff"]
+            metric_key: Legacy interface for single-metric comparison
+            title: Chart title
+            save_path: Custom save path
             
         Example:
             materials_data = [
@@ -259,11 +268,11 @@ class PredictionVisualizer:
             Dict with status, file_path, comparison data
         """
         if not HAS_MATPLOTLIB and not HAS_PLOTLY:
-            return {"status": "error", "message": "需要安装 matplotlib 或 plotly"}
+            return {"status": "error", "message": "Matplotlib or Plotly is required."}
         
-        # 兼容旧接口
+        # Legacy interface support.
         if materials_data is None and results_list is not None:
-            # 转换旧格式
+            # Convert legacy format.
             materials_data = []
             for r in results_list:
                 materials_data.append({
@@ -272,16 +281,16 @@ class PredictionVisualizer:
                 })
         
         if not materials_data:
-            return {"status": "error", "message": "没有材料数据"}
+            return {"status": "error", "message": "No materials data provided."}
         
-        # 如果没有指定 metrics，使用默认或单指标
+        # If metrics not provided, use default or single metric.
         if metrics is None:
             if metric_key:
                 metrics = [metric_key]
             else:
                 metrics = ["pce", "voc", "jsc", "ff"]
         
-        # 提取数据
+        # Extract data.
         material_names = []
         metric_values = {m: [] for m in metrics}
         
@@ -294,7 +303,7 @@ class PredictionVisualizer:
                 val = self._extract_metric_value(predictions, m)
                 metric_values[m].append(val if val is not None else 0)
         
-        # 生成文件名
+        # Build output filename.
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if save_path:
             file_path = Path(save_path)
@@ -302,14 +311,14 @@ class PredictionVisualizer:
             safe_title = title.replace(" ", "_").replace("/", "_")[:30]
             file_path = self.output_dir / f"comparison_{safe_title}_{timestamp}.png"
         
-        # 绘图
+        # Render plot.
         if HAS_PLOTLY:
             return self._grouped_bar_plotly(material_names, metric_values, title, file_path)
         else:
             return self._grouped_bar_matplotlib(material_names, metric_values, title, file_path)
     
     # =========================================================================
-    # 内部方法 - Plotly 单材料条形图
+    # Internal: Plotly single-material bar chart
     # =========================================================================
     def _visualize_plotly(
         self,
@@ -418,7 +427,7 @@ class PredictionVisualizer:
         }
     
     # =========================================================================
-    # 内部方法 - Matplotlib 单材料条形图
+    # Internal: Matplotlib single-material bar chart
     # =========================================================================
     def _visualize_matplotlib(
         self,
@@ -532,21 +541,21 @@ class PredictionVisualizer:
         }
     
     # =========================================================================
-    # 内部方法 - 折线图（趋势图）
+    # Internal: trend line chart
     # =========================================================================
     def _line_chart_matplotlib(self, x_values, y_values, x_labels, x_label, y_label, title, color, file_path):
-        """Matplotlib 趋势折线图"""
+        """Matplotlib trend line chart."""
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # 折线图
+        # Trend line.
         ax.plot(x_values, y_values, 'o-', color=color, linewidth=2.5, markersize=10, label=y_label)
         
-        # 添加数据点标签
+        # Add point labels.
         for x, y, label in zip(x_values, y_values, x_labels):
             ax.annotate(f'{y:.2f}', xy=(x, y), xytext=(0, 10), textcoords="offset points",
                        ha='center', fontsize=10, fontweight='bold')
         
-        # 如果x_labels有意义，使用它们作为刻度
+        # If x_labels are meaningful, use them as ticks.
         if x_labels and len(set(x_labels)) == len(x_labels):
             ax.set_xticks(x_values)
             ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=9)
@@ -557,7 +566,7 @@ class PredictionVisualizer:
         ax.grid(True, alpha=0.3)
         ax.legend(loc='best')
         
-        # 添加趋势分析
+        # Add trend analysis.
         trend_info = None
         if len(y_values) >= 2:
             trend = "increasing" if y_values[-1] > y_values[0] else "decreasing"
@@ -583,7 +592,7 @@ class PredictionVisualizer:
         }
     
     def _line_chart_plotly(self, x_values, y_values, x_labels, x_label, y_label, title, color, file_path):
-        """Plotly 趋势折线图"""
+        """Plotly trend line chart."""
         fig = go.Figure()
         
         fig.add_trace(go.Scatter(
@@ -593,7 +602,7 @@ class PredictionVisualizer:
             hovertext=x_labels, name=y_label
         ))
         
-        # 趋势信息
+        # Trend info.
         trend_info = None
         if len(y_values) >= 2:
             trend = "increasing" if y_values[-1] > y_values[0] else "decreasing"
@@ -612,11 +621,11 @@ class PredictionVisualizer:
             template='plotly_white', height=500, width=900
         )
         
-        # 设置X轴刻度
+        # Set X-axis ticks.
         if x_labels:
             fig.update_xaxes(tickvals=x_values, ticktext=x_labels, tickangle=45)
         
-        # 保存
+        # Save.
         html_path = file_path.with_suffix('.html')
         fig.write_html(str(html_path))
         
@@ -637,10 +646,10 @@ class PredictionVisualizer:
         }
     
     # =========================================================================
-    # 内部方法 - 分组条形图（多材料对比）
+    # Internal: grouped bar chart (multi-material comparison)
     # =========================================================================
     def _grouped_bar_matplotlib(self, material_names, metric_values, title, file_path):
-        """Matplotlib 分组条形图"""
+        """Matplotlib grouped bar chart."""
         fig, ax = plt.subplots(figsize=(max(10, len(material_names) * 2), 6))
         
         metrics = list(metric_values.keys())
@@ -656,7 +665,7 @@ class PredictionVisualizer:
             values = metric_values[metric]
             bars = ax.bar(x + offset, values, width, label=cfg['label'], color=cfg['color'], edgecolor='black')
             
-            # 数值标签
+            # Value labels.
             for bar, val in zip(bars, values):
                 if val > 0:
                     ax.annotate(f'{val:.2f}', xy=(bar.get_x() + bar.get_width()/2, bar.get_height()),
@@ -684,7 +693,7 @@ class PredictionVisualizer:
         }
     
     def _grouped_bar_plotly(self, material_names, metric_values, title, file_path):
-        """Plotly 分组条形图"""
+        """Plotly grouped bar chart."""
         fig = go.Figure()
         
         for metric, values in metric_values.items():
@@ -700,7 +709,7 @@ class PredictionVisualizer:
             barmode='group', template='plotly_white', height=500, width=900
         )
         
-        # 保存
+        # Save.
         html_path = file_path.with_suffix('.html')
         fig.write_html(str(html_path))
         
@@ -721,28 +730,28 @@ class PredictionVisualizer:
         }
     
     # =========================================================================
-    # 工具方法
+    # Utility methods
     # =========================================================================
     def _extract_metric_value(self, predictions: Dict, metric_key: str) -> Optional[float]:
         """
-        从预测结果中提取指标值，支持多种格式
+        Extract a metric value from predictions, supporting multiple formats.
         
-        支持的格式：
-        - {"pce": 20.5}  直接值
-        - {"pce": {"value": 20.5}}  嵌套值
-        - {"PCE_percent": 20.5}  旧格式
+        Supported formats:
+        - {"pce": 20.5} direct value
+        - {"pce": {"value": 20.5}} nested value
+        - {"PCE_percent": 20.5} legacy key
         """
         if not predictions:
             return None
         
-        # 直接查找
+        # Direct lookup.
         if metric_key in predictions:
             val = predictions[metric_key]
             if isinstance(val, dict):
                 return val.get("value")
             return val
         
-        # 尝试旧格式映射
+        # Try legacy mapping.
         for old_key, new_key in LEGACY_METRIC_MAP.items():
             if new_key == metric_key and old_key in predictions:
                 val = predictions[old_key]
@@ -754,7 +763,7 @@ class PredictionVisualizer:
 
 
 # =============================================================================
-# 便捷函数接口 - 供 FabAgent 调用
+# Convenience functions for FabAgent
 # =============================================================================
 
 def visualize_prediction_results(
@@ -764,7 +773,7 @@ def visualize_prediction_results(
     output_dir: str = "src/test/prediction_results",
 ) -> dict[str, Any]:
     """
-    单材料预测结果条形图 - 保持向后兼容
+    Single-material prediction bar chart (backward compatible).
     
     Args:
         predicted_metrics: Dict with keys like PCE_percent, Voc_V, Jsc_mA_cm2, FF_percent, T80_hours
@@ -791,24 +800,24 @@ def visualize_series_trend(
     output_dir: str = "src/test/prediction_results",
 ) -> Dict[str, Any]:
     """
-    系列材料趋势图（折线图）- 新增功能
+    Series trend line chart (new feature).
     
-    用于可视化某个性能指标随组分变化的趋势
+    Visualizes how a metric changes with composition.
     
     Args:
-        series_data: 系列数据，格式：
+        series_data: Series data, format:
             [
                 {"x_value": 0.0, "x_label": "FAPbI3", "predictions": {"pce": {"value": 20.1}}},
                 {"x_value": 0.1, "x_label": "FA0.9Cs0.1PbI3", "predictions": {"pce": {"value": 21.2}}},
                 ...
             ]
-        x_label: X轴标题
-        y_metric: Y轴指标 (pce, voc, jsc, ff, dft_band_gap, energy_above_hull)
-        title: 图表标题
-        output_dir: 输出目录
+        x_label: X-axis title
+        y_metric: Y-axis metric (pce, voc, jsc, ff, dft_band_gap, energy_above_hull)
+        title: Chart title
+        output_dir: Output directory
         
     Returns:
-        包含文件路径和状态的字典
+        Dict containing file paths and status
     """
     visualizer = PredictionVisualizer(output_dir=output_dir)
     return visualizer.visualize_series_trend(
@@ -826,23 +835,23 @@ def visualize_comparison(
     output_dir: str = "src/test/prediction_results",
 ) -> Dict[str, Any]:
     """
-    多材料对比条形图（分组）- 新增功能
+    Multi-material comparison bar chart (grouped).
     
-    用于对比多种材料的性能
+    Compares performance across multiple materials.
     
     Args:
-        materials_data: 材料数据，格式：
+        materials_data: Material data, format:
             [
                 {"name": "MAPbI3", "predictions": {"pce": {"value": 19.1}, "voc": {"value": 1.05}}},
                 {"name": "FAPbI3", "predictions": {"pce": {"value": 20.5}, "voc": {"value": 1.08}}},
                 ...
             ]
-        metrics: 要对比的指标列表，默认 ["pce", "voc", "jsc", "ff"]
-        title: 图表标题
-        output_dir: 输出目录
+        metrics: Metrics to compare, default ["pce", "voc", "jsc", "ff"]
+        title: Chart title
+        output_dir: Output directory
         
     Returns:
-        包含文件路径和状态的字典
+        Dict containing file paths and status
     """
     visualizer = PredictionVisualizer(output_dir=output_dir)
     return visualizer.visualize_comparison(
@@ -853,7 +862,7 @@ def visualize_comparison(
 
 
 # =============================================================================
-# 测试
+# Tests
 # =============================================================================
 
 if __name__ == "__main__":
@@ -861,7 +870,7 @@ if __name__ == "__main__":
     print("Testing Enhanced Visualization Tools")
     print("=" * 60)
     
-    # 测试1: 单材料条形图
+    # Test 1: Single-material bar chart
     print("\n1. Testing single prediction bar chart...")
     result1 = visualize_prediction_results(
         predicted_metrics={"PCE_percent": 22.5, "Voc_V": 1.15, "Jsc_mA_cm2": 24.3, "FF_percent": 80.5},
@@ -872,7 +881,7 @@ if __name__ == "__main__":
     print(f"   Status: {result1.get('status')}")
     print(f"   File: {result1.get('png_path') or result1.get('html_path')}")
     
-    # 测试2: 趋势图 - 这是Q030-Q035需要的功能
+    # Test 2: Trend chart (required for Q030-Q035)
     print("\n2. Testing series trend line chart (NEW)...")
     series_data = [
         {"x_value": 0.0, "x_label": "FAPbI3", "predictions": {"pce": {"value": 20.1}, "dft_band_gap": {"value": 1.52}}},
@@ -891,7 +900,7 @@ if __name__ == "__main__":
     print(f"   File: {result2.get('file_path') or result2.get('png_path')}")
     print(f"   Trend: {result2.get('trend')}")
     
-    # 测试3: 多材料对比
+    # Test 3: Multi-material comparison
     print("\n3. Testing materials comparison chart (NEW)...")
     materials_data = [
         {"name": "MAPbI3", "predictions": {"pce": {"value": 19.1}, "voc": {"value": 1.05}, "jsc": {"value": 22.5}, "ff": {"value": 78.0}}},

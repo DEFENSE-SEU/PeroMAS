@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 """
 predict_single_target.py
-单属性模型预测 API
+Single-target model prediction API.
 
-使用方法:
+Usage:
     from predict_single_target import PerovskitePredictor
     
     predictor = PerovskitePredictor()
     
-    # 预测单个材料
+    # Predict a single material
     results = predictor.predict_composition("FA0.25MA0.75PbI3")
     
-    # 预测 CIF 结构
+    # Predict CIF structure
     results = predictor.predict_cif(cif_string)
 """
 
@@ -24,29 +24,29 @@ from typing import Dict, List, Optional, Union
 import warnings
 warnings.filterwarnings('ignore')
 
-# 导入特征生成模块
+# Import feature generation modules.
 from revised_CBFV import composition
 from pymatgen.io.cif import CifParser
 from pymatgen.core.structure import Structure
 
 
-# 所有目标属性
+# All target properties
 ALL_TARGETS = ["pce", "dft_band_gap", "energy_above_hull", "voc", "jsc", "ff"]
 
-# 模型目录
+# Model directory
 MODEL_DIR = "data/model/single_target"
 
 
 class PerovskitePredictor:
-    """钙钛矿性质预测器 - 单属性模型版本"""
+    """Perovskite property predictor (single-target models)."""
     
     def __init__(self, model_type: str = "RF", model_dir: str = MODEL_DIR):
         """
-        初始化预测器
+        Initialize the predictor.
         
         Args:
-            model_type: 模型类型 ("RF", "GBDT", "NN")
-            model_dir: 模型目录
+            model_type: Model type ("RF", "GBDT", "NN")
+            model_dir: Model directory
         """
         self.model_type = model_type
         self.model_dir = model_dir
@@ -54,7 +54,7 @@ class PerovskitePredictor:
         self._load_models()
     
     def _load_models(self):
-        """加载所有模型"""
+        """Load all models."""
         print(f"Loading {self.model_type} models...")
         
         for feature_mode in ["comp_only", "cif_only"]:
@@ -71,11 +71,11 @@ class PerovskitePredictor:
                     print(f"  Missing: {model_path}")
     
     def _generate_cbfv_features(self, composition_str: str, elem_prop: str = "oliynyk") -> np.ndarray:
-        """生成 CBFV 特征"""
-        # 清理输入
+        """Generate CBFV features."""
+        # Normalize input.
         composition_str = composition_str.replace("|", "")
         
-        # 加载缩写对照表
+        # Load abbreviation mapping.
         corr_path = "revised_CBFV/Perovskite_a_ion_correspond_arr.csv"
         if os.path.exists(corr_path):
             corr = pd.read_csv(corr_path)
@@ -99,8 +99,8 @@ class PerovskitePredictor:
                 return np.zeros(264)
     
     def _generate_cif_features(self, cif_string: str) -> np.ndarray:
-        """生成 CIF 结构特征"""
-        # 修复可能的转义字符
+        """Generate CIF structure features."""
+        # Fix escaped newlines.
         if "\\n" in cif_string:
             cif_string = cif_string.replace("\\n", "\n")
         
@@ -134,19 +134,19 @@ class PerovskitePredictor:
         targets: Optional[List[str]] = None
     ) -> Dict[str, float]:
         """
-        使用分子式预测性质
+        Predict properties from a formula.
         
         Args:
-            composition_str: 分子式字符串，如 "FA0.25MA0.75PbI3"
-            targets: 要预测的目标属性列表，默认预测所有
+            composition_str: Formula string, e.g., "FA0.25MA0.75PbI3"
+            targets: Target list to predict (defaults to all)
             
         Returns:
-            Dict[str, float]: 各属性的预测值
+            Dict[str, float]: Predicted values
         """
         if targets is None:
             targets = ALL_TARGETS
         
-        # 生成特征
+        # Generate features.
         features = self._generate_cbfv_features(composition_str)
         X = features.reshape(1, -1)
         
@@ -167,19 +167,19 @@ class PerovskitePredictor:
         targets: Optional[List[str]] = None
     ) -> Dict[str, float]:
         """
-        使用 CIF 结构预测性质
+        Predict properties from CIF structure.
         
         Args:
-            cif_string: CIF 格式的晶体结构字符串
-            targets: 要预测的目标属性列表，默认预测所有
+            cif_string: CIF structure string
+            targets: Target list to predict (defaults to all)
             
         Returns:
-            Dict[str, float]: 各属性的预测值
+            Dict[str, float]: Predicted values
         """
         if targets is None:
             targets = ALL_TARGETS
         
-        # 生成特征
+        # Generate features.
         features = self._generate_cif_features(cif_string)
         X = features.reshape(1, -1)
         
@@ -202,16 +202,16 @@ class PerovskitePredictor:
         targets: Optional[List[str]] = None
     ) -> pd.DataFrame:
         """
-        批量预测
+        Batch prediction.
         
         Args:
-            compositions: 分子式列表 (当 feature_mode="comp_only")
-            cif_strings: CIF 字符串列表 (当 feature_mode="cif_only")
-            feature_mode: 特征模式
-            targets: 要预测的目标属性列表
+            compositions: Formula list (when feature_mode="comp_only")
+            cif_strings: CIF string list (when feature_mode="cif_only")
+            feature_mode: Feature mode
+            targets: Target list to predict
             
         Returns:
-            pd.DataFrame: 预测结果表
+            pd.DataFrame: Prediction table
         """
         if targets is None:
             targets = ALL_TARGETS
@@ -246,7 +246,7 @@ class PerovskitePredictor:
         return pd.DataFrame(results)
     
     def get_available_models(self) -> Dict[str, List[str]]:
-        """获取可用的模型列表"""
+        """Get available models."""
         available = {}
         for feature_mode, targets_dict in self.models.items():
             available[feature_mode] = list(targets_dict.keys())
@@ -254,12 +254,12 @@ class PerovskitePredictor:
 
 
 def test_predictor():
-    """测试预测器"""
+    """Test the predictor."""
     print("=" * 60)
     print("Testing PerovskitePredictor")
     print("=" * 60)
     
-    # 检查模型目录
+    # Check model directory.
     if not os.path.exists(MODEL_DIR):
         print(f"Model directory not found: {MODEL_DIR}")
         print("Please train models first using train_single_target.sh")
@@ -270,7 +270,7 @@ def test_predictor():
     print("\nAvailable models:")
     print(predictor.get_available_models())
     
-    # 测试分子式预测
+    # Test formula prediction.
     test_compositions = [
         "Cs0.05FA0.79MA0.16Pb(I0.83Br0.17)3",
         "FA0.25MA0.75PbI3",

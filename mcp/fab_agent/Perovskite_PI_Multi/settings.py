@@ -12,7 +12,7 @@ target = [
     "voc", "jsc", "ff" 
 ]
 
-use_X = "cif_comp" # 新增模式：仅使用 CIF 和 Composition
+use_X = "cif_comp" # New mode: use CIF and Composition only
 # use_X = "all" # "all", "per", "mat"
 
 num_list = []

@@ -189,7 +189,7 @@ class MemoryAgent(BaseAgent):
         print(f"   🌐 MCP Tools (0): None")
         print(f"   📊 Total: 0 tools")
         
-        # 1. Get ALL context from state (强制对齐)
+        # 1) Get ALL context from state (forced alignment).
         current_iteration = state.get("current_iteration", 0)
         goal = state.get("goal", "")
         plan = state.get("plan", "")

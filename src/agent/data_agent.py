@@ -45,13 +45,13 @@ def safe_truncate(value: Any, max_len: int, suffix: str = "...", default: str = 
 
 
 # ============================================================================
-# MCP 服务器配置
+# MCP server configuration
 # ============================================================================
 
-# ArXiv MCP Server - 论文搜索、下载、阅读
+# ArXiv MCP Server - paper search, download, read
 ARXIV_MCP_SERVER_URL = "https://seuyishu-arxiv-mcp-server.hf.space/sse"
 
-# MCP 服务器列表 (DataAgent 专用)
+# MCP server list (DataAgent only)
 DATA_AGENT_MCP_SERVERS = {
     "arxiv": {
         "url": ARXIV_MCP_SERVER_URL,
@@ -62,8 +62,8 @@ DATA_AGENT_MCP_SERVERS = {
 
 
 # ============================================================================
-# DataAgent 专属工具定义 (本地工具)
-# 这些工具仅供 DataAgent 使用
+# DataAgent local tool definitions
+# These tools are for DataAgent only.
 # ============================================================================
 
 DATA_AGENT_TOOLS = [
@@ -193,11 +193,11 @@ class DataAgent(BaseAgent):
     Data Agent: Search -> Screen -> Download -> Extract literature data.
     
     Local Tools (DataAgent-specific):
-        - save_markdown_locally: 保存论文 Markdown 到本地
-        - extract_data_from_papers: 从论文中提取结构化数据
+        - save_markdown_locally: Save paper Markdown locally
+        - extract_data_from_papers: Extract structured data from papers
     """
     
-    # DataAgent 专属工具名称
+    # DataAgent local tool names.
     LOCAL_DATA_TOOLS = {"save_markdown_locally", "extract_data_from_papers"}
 
     def __init__(
@@ -219,7 +219,7 @@ class DataAgent(BaseAgent):
         else:
             self.local_data_dir = local_data_dir
         self._markdown_cache: dict[str, str] = {}  # paper_id -> markdown content
-        # 存储专属工具的 schema
+        # Store local tool schemas.
         self._data_tools = DATA_AGENT_TOOLS.copy()
 
     def _get_system_prompt(
@@ -373,22 +373,22 @@ class DataAgent(BaseAgent):
         return args
 
     # =========================================================================
-    # DataAgent 专属工具处理
+    # DataAgent local tool handling
     # =========================================================================
     
     async def _get_tools_with_data_tools(self) -> list[dict[str, Any]]:
-        """获取工具列表，包含 DataAgent 专属工具"""
-        # 从 registry 获取 MCP 工具
+        """Get tool list including DataAgent local tools."""
+        # Fetch MCP tools from registry.
         mcp_tools = []
         if self.registry.is_initialized():
             mcp_tools = await self.registry.get_tools_schema()
         
-        # 合并专属数据工具
+        # Merge local data tools.
         all_tools = self._data_tools + mcp_tools
         return all_tools
 
     async def _handle_data_tool(self, name: str, args: dict[str, Any]) -> str:
-        """处理 DataAgent 专属工具调用"""
+        """Handle DataAgent local tool calls."""
         if name == "save_markdown_locally":
             return self._save_markdown_locally(args)
         elif name == "extract_data_from_papers":
@@ -630,7 +630,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
         system_message: str | None = None,
         max_iterations: int = 10,
     ) -> dict[str, Any]:
-        """重写 autonomous_thinking 以支持 DataAgent 专属工具"""
+        """Override autonomous_thinking to support DataAgent local tools."""
         if not self.llm:
             self.logger.error("LLM client not available")
             return {
@@ -640,7 +640,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
                 "iterations": 0,
             }
 
-        # 获取工具 (包含专属数据工具)
+        # Get tools (including local data tools).
         tools = await self._get_tools_with_data_tools()
         
         self.logger.info(f"Available tools: {len(tools)}")
@@ -690,14 +690,14 @@ Based on the Goal and Plan above, extract relevant data from this paper.
 
                 self.logger.info(f"Executing tool: {tool_name}")
                 
-                # === 工具调用可视化 (去重逻辑) ===
+                # Tool call visualization with de-duplication.
                 tool_type = "📍 Local" if tool_name in self.LOCAL_DATA_TOOLS else "🌐 MCP"
                 if tool_name == _last_tool_name:
                     _consecutive_count += 1
                     print(f"\r   🔄 [DataAgent] {tool_name} called {_consecutive_count}x (consecutive)", end="", flush=True)
                 else:
                     if _last_tool_name is not None and _consecutive_count > 1:
-                        print()  # 换行
+                        print()  # End the previous tool's counter line.
                     _consecutive_count = 1
                     _last_tool_name = tool_name
                     print(f"\n🔧 [DataAgent] Calling {tool_type} Tool: {tool_name}")
@@ -705,18 +705,18 @@ Based on the Goal and Plan above, extract relevant data from this paper.
                 
                 all_tool_calls.append(tc)
 
-                # 预处理参数 (注入缓存内容)
+                # Preprocess args (inject cached content).
                 tool_args = self._preprocess_tool_args(tool_name, tool_args)
 
                 try:
-                    # 判断是专属工具还是 MCP 工具
+                    # Select local vs MCP tool.
                     if tool_name in self.LOCAL_DATA_TOOLS:
                         result_str = await self._handle_data_tool(tool_name, tool_args)
                     else:
                         result = await self.registry.call_tool(tool_name, tool_args)
                         result_str = str(result) if result else "No result"
                     
-                    # 处理工具输出 (缓存、截断等)
+                    # Process tool output (cache, truncate).
                     processed = self._process_tool_output(result_str, tool_name)
                     if processed is not None:
                         result_str = processed
@@ -732,7 +732,7 @@ Based on the Goal and Plan above, extract relevant data from this paper.
                     "result": result_str,
                 })
                 
-                # === 工具结果可视化 (仅首次调用显示详细结果) ===
+                # Tool result visualization (details only for first call).
                 if _consecutive_count == 1:
                     result_preview = result_str[:150] if len(result_str) > 150 else result_str
                     print(f"   📤 Result: {result_preview}{'...' if len(result_str) > 150 else ''}")

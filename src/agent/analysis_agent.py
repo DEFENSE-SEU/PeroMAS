@@ -84,7 +84,7 @@ except ImportError:
 
 
 # ============================================================
-# Analysis Agent Specific Tools (字典格式)
+# Analysis Agent Specific Tools (dict format)
 # ============================================================
 
 ANALYSIS_AGENT_TOOLS = [
@@ -342,7 +342,7 @@ Returns: JSON with filepath to saved PNG plot, correlation coefficient, and tren
         }
     },
     # ============================================================
-    # 新增：物理/化学/数据分析工具
+    # New: physics/chemistry/data analysis tools
     # ============================================================
     {
         "type": "function",
@@ -817,7 +817,7 @@ def _execute_analyze_organic_cation(**kwargs) -> str:
         name = kwargs.get("name", None)
         
         if not smiles:
-            # 尝试从名称获取
+            # Try to resolve from name.
             if name and name.upper() in COMMON_CATIONS:
                 result = get_cation_info(name)
             else:
@@ -859,7 +859,7 @@ Analyze perovskite materials and experimental results. Determine not just WHAT t
 
 ## Your Specialized Toolbox
 
-### Chemistry Analysis (化学分析)
+### Chemistry Analysis
 - `analyze_stoichiometry(formula)`: Validate formula, calculate molecular weight, check charge balance, list atomic fractions.
   - Use when: analyzing chemical formulas (e.g., CsPbI3, Cs2AgBiBr6)
   - Input: formula string
@@ -869,17 +869,17 @@ Analyze perovskite materials and experimental results. Determine not just WHAT t
   - Common SMILES: MA="CN", FA="[NH2+]=CN", PEA="NCCc1ccccc1", BA="CCCCN", OA="CCCCCCCCN"
   - Note: Higher LogP = more hydrophobic = better moisture resistance
 
-### Mechanism Diagnosis (机理诊断)
+### Mechanism Diagnosis
 - `analyze_mechanism(analysis_type, material_info, conditions?, metrics?)`: Diagnose degradation or performance mechanisms.
   - analysis_type: "degradation", "performance", or "structure_property"
   - Use when: explaining why material behaves certain way (e.g., thermal degradation, voltage loss)
 
-### Statistical Analysis (统计分析)
+### Statistical Analysis
 - `calculate_correlation(data_json, target_column?)`: Calculate Pearson correlation coefficients.
   - Use when: user provides experimental data and asks about correlations
   - Input: JSON array of data points, e.g., [{"Temp": 100, "PCE": 18.5}, ...]
 
-### SHAP Interpretation (模型解释)
+### SHAP Interpretation
 - `shap_feature_importance(feature_importance, material_composition?, target_property?)`: Rank feature importance.
   - Use when: user provides feature importance dict from ML model
   
@@ -889,7 +889,7 @@ Analyze perovskite materials and experimental results. Determine not just WHAT t
 - `shap_analyze_prediction(contributions, base_value, predicted_value)`: Explain single prediction.
   - Use when: user provides contribution data for specific samples
 
-### Visualization (可视化)
+### Visualization
 - `visualize_structure(cif_content, name?, supercell?, theme?)`: Render crystal structure as 3D HTML.
   - CONSTRAINT: Requires actual CIF file content - skip if not available
 
@@ -1042,14 +1042,14 @@ class AnalysisAgent(BaseAgent):
 
                 self.logger.info(f"Executing tool: {tool_name}")
                 
-                # === 工具调用可视化 (去重逻辑) ===
+                # Tool call visualization with de-duplication.
                 tool_type = "📍 Local" if tool_name in local_tool_names else "🌐 MCP"
                 if tool_name == _last_tool_name:
                     _consecutive_count += 1
                     print(f"\r   🔄 [AnalysisAgent] {tool_name} called {_consecutive_count}x (consecutive)", end="", flush=True)
                 else:
                     if _last_tool_name is not None and _consecutive_count > 1:
-                        print()  # 换行
+                        print()  # End the previous tool's counter line.
                     _consecutive_count = 1
                     _last_tool_name = tool_name
                     print(f"\n🔧 [AnalysisAgent] Calling {tool_type} Tool: {tool_name}")
@@ -1076,7 +1076,7 @@ class AnalysisAgent(BaseAgent):
                     "result": result_str,
                 })
                 
-                # === 工具结果可视化 (仅首次调用显示详细结果) ===
+                # Tool result visualization (details only for first call).
                 if _consecutive_count == 1:
                     result_preview = result_str[:150] if len(result_str) > 150 else result_str
                     print(f"   📤 Result: {result_preview}{'...' if len(result_str) > 150 else ''}")

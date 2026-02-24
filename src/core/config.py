@@ -187,7 +187,7 @@ class MCPServerConfig:
     args: list[str] = field(default_factory=list)
     env: dict[str, str] | None = None
     enabled: bool = True
-    url: Optional[str] = None  # <--- 必须添加这一行！
+    url: Optional[str] = None  # Required for SSE support.
 
 
 @dataclass
@@ -232,7 +232,7 @@ class MCPConfig:
                 args=cfg.get("args", []),
                 env=cfg.get("env"),
                 enabled=cfg.get("enabled", True),
-                url=cfg.get("url"),  # 支持 SSE 连接
+                url=cfg.get("url"),  # Enable SSE connection.
             )
         return cls(servers=servers)
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-模型测试脚本 - 测试新训练的 Composition-only 和 CIF-only 模型
+Model test script for newly trained Composition-only and CIF-only models.
 
 Usage:
-    python test_models.py                    # 测试所有模型
-    python test_models.py --mode comp_only   # 只测试 Composition-only 模型
-    python test_models.py --mode cif_only    # 只测试 CIF-only 模型
-    python test_models.py --model RF         # 只测试 RF 模型
+    python test_models.py                    # Test all models
+    python test_models.py --mode comp_only   # Test only Composition-only models
+    python test_models.py --mode cif_only    # Test only CIF-only models
+    python test_models.py --model RF         # Test only RF models
 """
 
 import os
@@ -25,23 +25,23 @@ from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings('ignore')
 
-# 添加当前目录到路径
+# Add current directory to path.
 SCRIPT_DIR = Path(__file__).parent.absolute()
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from process import file2vector
 
 # =============================================================================
-# 配置
+# Configuration
 # =============================================================================
 
 MODEL_DIR = SCRIPT_DIR / "data" / "model"
 DATA_FILE = SCRIPT_DIR / "data" / "raw" / "full_dataset.csv"
 
-# 目标属性
+# Target properties
 TARGET_PROPERTIES = ["pce", "dft_band_gap", "energy_above_hull", "voc", "jsc", "ff"]
 
-# 特征配置
+# Feature configuration
 FEATURE_CONFIG = {
     "split_way": 1,
     "per_elem_prop": "oliynyk",
@@ -50,14 +50,14 @@ FEATURE_CONFIG = {
 }
 
 # =============================================================================
-# 辅助函数
+# Helpers
 # =============================================================================
 
 def find_models(mode=None, model_type=None):
-    """查找可用的模型文件"""
+    """Find available model files."""
     models = {}
     
-    # 查找模型文件模式
+    # Build model file patterns.
     patterns = []
     if mode:
         if model_type:
@@ -75,7 +75,7 @@ def find_models(mode=None, model_type=None):
     for pattern in patterns:
         for model_path in glob.glob(str(MODEL_DIR / pattern)):
             model_name = Path(model_path).stem
-            # 解析模型信息: model_{mode}_{type}_...
+            # Parse model info: model_{mode}_{type}_...
             parts = model_name.split("_")
             if len(parts) >= 4:
                 m_mode = f"{parts[1]}_{parts[2]}"  # comp_only or cif_only
@@ -92,16 +92,16 @@ def find_models(mode=None, model_type=None):
 
 
 def load_model(model_path):
-    """加载模型"""
+    """Load a model."""
     print(f"  Loading: {Path(model_path).name}")
     return joblib.load(model_path)
 
 
 def prepare_data(mode):
-    """准备测试数据"""
+    """Prepare test data."""
     print(f"\n  Preparing data for mode: {mode}")
     
-    # 检查缓存
+    # Check cache.
     from scipy.sparse import load_npz
     csr_path = f"data/csr/{mode}_sp1_oliynyk_zero_csr.npz"
     col_path = f"data/csr/{mode}_sp1_oliynyk_zero_columns.npy"
@@ -122,12 +122,12 @@ def prepare_data(mode):
             mode
         )
     
-    # 加载目标值
+    # Load target values.
     df_raw = pd.read_csv(DATA_FILE)
     df_clean = df_raw.dropna(subset=TARGET_PROPERTIES)
     y = df_clean[TARGET_PROPERTIES]
     
-    # 对齐数据
+    # Align data.
     X = X.iloc[df_clean.index].reset_index(drop=True)
     y = y.reset_index(drop=True)
     
@@ -136,7 +136,7 @@ def prepare_data(mode):
 
 
 def evaluate_model(model, X_test, y_test, target_names):
-    """评估模型性能"""
+    """Evaluate model performance."""
     y_pred = model.predict(X_test)
     
     results = {
@@ -148,7 +148,7 @@ def evaluate_model(model, X_test, y_test, target_names):
         "per_target": {}
     }
     
-    # 每个目标的指标
+    # Metrics per target.
     y_test_np = np.array(y_test)
     y_pred_np = np.array(y_pred)
     
@@ -163,7 +163,7 @@ def evaluate_model(model, X_test, y_test, target_names):
 
 
 def print_results(model_info, results):
-    """打印评估结果"""
+    """Print evaluation results."""
     print(f"\n  {'='*60}")
     print(f"  Model: {model_info['name']}")
     print(f"  Mode: {model_info['mode']}, Type: {model_info['type']}")
@@ -183,7 +183,7 @@ def print_results(model_info, results):
 
 
 def test_prediction_example(model, X, mode, model_type):
-    """测试单个样本预测"""
+    """Test single-sample prediction."""
     print(f"\n  Sample Prediction (first 3 samples):")
     
     X_sample = X.iloc[:3]
@@ -196,7 +196,7 @@ def test_prediction_example(model, X, mode, model_type):
 
 
 # =============================================================================
-# 主函数
+# Main entry
 # =============================================================================
 
 def main():
@@ -210,27 +210,27 @@ def main():
     args = parser.parse_args()
     
     print("="*70)
-    print(" 钙钛矿性质预测模型测试")
-    print(f" 时间: {datetime.now()}")
+    print(" Perovskite property prediction model test")
+    print(f" Time: {datetime.now()}")
     print("="*70)
     
-    # 查找模型
+    # Find models.
     models = find_models(mode=args.mode, model_type=args.model)
     
     if not models:
-        print("\n❌ 没有找到匹配的模型文件！")
-        print(f"   模型目录: {MODEL_DIR}")
-        print(f"   请确保模型已训练完成。")
+        print("\n❌ No matching model files found!")
+        print(f"   Model directory: {MODEL_DIR}")
+        print("   Ensure models are trained.")
         return
     
-    print(f"\n找到 {len(models)} 个模型:")
+    print(f"\nFound {len(models)} models:")
     for key, info in models.items():
         print(f"  - {info['name']}")
     
-    # 按 mode 分组准备数据 (避免重复加载)
+    # Prepare data per mode (avoid reloads).
     data_cache = {}
     
-    # 测试每个模型
+    # Test each model.
     all_results = {}
     
     for key, model_info in models.items():
@@ -240,7 +240,7 @@ def main():
         print(f" Testing: {model_info['name']}")
         print(f"{'='*70}")
         
-        # 准备数据 (带缓存)
+        # Prepare data (with cache).
         if mode not in data_cache:
             X, y = prepare_data(mode)
             X_train, X_test, y_train, y_test = train_test_split(
@@ -250,32 +250,32 @@ def main():
         else:
             X_train, X_test, y_train, y_test = data_cache[mode]
         
-        # 加载模型
+        # Load model.
         try:
             model = load_model(model_info["path"])
         except Exception as e:
-            print(f"  ❌ 加载模型失败: {e}")
+            print(f"  ❌ Failed to load model: {e}")
             continue
         
-        # 评估模型
+        # Evaluate model.
         try:
             results = evaluate_model(model, X_test, y_test, TARGET_PROPERTIES)
             all_results[key] = results
             print_results(model_info, results)
             
-            # 测试单个预测
+            # Test single prediction.
             test_prediction_example(model, X_test, mode, model_info["type"])
             
         except Exception as e:
-            print(f"  ❌ 评估失败: {e}")
+            print(f"  ❌ Evaluation failed: {e}")
             import traceback
             traceback.print_exc()
             continue
     
-    # 汇总对比
+    # Summary comparison.
     if len(all_results) > 1:
         print("\n" + "="*70)
-        print(" 模型性能对比汇总")
+        print(" Model performance summary")
         print("="*70)
         
         print(f"\n {'Model':<35} {'Overall R2':>12} {'Overall RMSE':>12}")
@@ -284,8 +284,8 @@ def main():
         for key, results in sorted(all_results.items()):
             print(f" {key:<35} {results['overall']['R2']:>12.4f} {results['overall']['RMSE']:>12.4f}")
         
-        # 每个目标的最佳模型
-        print(f"\n 每个目标属性的最佳模型 (按 R2):")
+        # Best model per target.
+        print(f"\n Best model per target (by R2):")
         print(f" {'-'*60}")
         
         for target in TARGET_PROPERTIES:
@@ -301,7 +301,7 @@ def main():
             print(f"   {target:<20}: {best_model:<30} (R2={best_r2:.4f})")
     
     print("\n" + "="*70)
-    print(" 测试完成!")
+    print(" Test completed!")
     print("="*70)
 
 

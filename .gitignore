@@ -82,24 +82,24 @@ htmlcov/
 *.feather
 
 # -----------------------------------------------------------------------------
-# 排除大型目录 - Exclude Large Directories
+# Exclude Large Directories
 # -----------------------------------------------------------------------------
-# 整个 dataset 目录（大型数据文件，不需要上传）
+# dataset directory (large data files)
 dataset/
 
-# src/test 目录（测试文件，不需要上传）
+# src/test directory (test files)
 src/test/
 
-# experiment 目录（实验文件不需要上传）
+# experiment directory (experimental files)
 experiment/
 
-# CSLLM 相关（大型模型/数据）
+# CSLLM artifacts (large models/data)
 mcp/design_agent/CSLLM/
 
-# Mattergen 相关（大型模型/数据）
+# Mattergen artifacts (large models/data)
 mcp/design_agent/mattergen/
 
-# train_on_service 目录（训练相关，不需要上传）
+# train_on_service directory (training artifacts)
 train_on_service/
 
 # -----------------------------------------------------------------------------

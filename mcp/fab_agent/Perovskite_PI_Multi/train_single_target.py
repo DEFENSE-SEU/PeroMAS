@@ -1,5 +1,5 @@
 # train_single_target.py
-# 单属性训练版本 - 每个属性单独训练一个模型
+# Single-target training version - train one model per target.
 
 import pandas as pd
 import numpy as np
@@ -15,7 +15,7 @@ import optuna
 
 
 def metrics_single(y_train_real, y_train_pred, y_test_real, y_test_pred, target_name=None):
-    """单属性模型的评估指标"""
+    """Evaluation metrics for a single-target model."""
     R2_train = r2_score(y_train_real, y_train_pred)
     RMSE_train = np.sqrt(mean_squared_error(y_train_real, y_train_pred))
     MAE_train = mean_absolute_error(y_train_real, y_train_pred)
@@ -39,7 +39,7 @@ def metrics_single(y_train_real, y_train_pred, y_test_real, y_test_pred, target_
 
 
 def makemodel_single(model_name, params):
-    """创建单输出模型"""
+    """Create a single-output model."""
     if model_name == "RF":
         model = RandomForestRegressor(
             n_estimators=params.get('n_estimators', 300),
@@ -77,7 +77,7 @@ def makemodel_single(model_name, params):
             n_iter_no_change=20,
             random_state=params.get('random_state', 42)
         )
-        # Pipeline 包装，避免梯度爆炸
+        # Pipeline wrapper to stabilize training.
         model = Pipeline([
             ('scaler', StandardScaler()),
             ('mlp', mlp)
@@ -89,28 +89,28 @@ def makemodel_single(model_name, params):
 
 
 def objective_single_target(model_name, X_train, y_train, valid_ratio, random_state=42):
-    """单属性超参数优化目标函数 - 优化版，防止过拟合"""
+    """Single-target hyperparameter objective with regularization."""
     
     def objective(trial):
         if model_name == "RF":
-            # RF 优化：增加正则化，防止过拟合
+            # RF tuning: add regularization to reduce overfitting.
             params = {
                 'n_estimators': trial.suggest_int("n_estimators", 200, 1000, step=100),
-                'max_depth': trial.suggest_int("max_depth", 8, 25),  # 限制深度防止过拟合
+                'max_depth': trial.suggest_int("max_depth", 8, 25),  # Limit depth to reduce overfitting.
                 'max_features': trial.suggest_categorical("max_features", ["sqrt", "log2", 0.3, 0.5, 0.7]),
-                'min_samples_split': trial.suggest_int("min_samples_split", 5, 30),  # 增大防止过拟合
-                'min_samples_leaf': trial.suggest_int("min_samples_leaf", 3, 20),    # 增大防止过拟合
-                'max_samples': trial.suggest_float("max_samples", 0.6, 0.95),        # Bootstrap 采样比例
+                'min_samples_split': trial.suggest_int("min_samples_split", 5, 30),  # Increase to reduce overfitting.
+                'min_samples_leaf': trial.suggest_int("min_samples_leaf", 3, 20),    # Increase to reduce overfitting.
+                'max_samples': trial.suggest_float("max_samples", 0.6, 0.95),        # Bootstrap sampling ratio.
                 'random_state': random_state
             }
             regr = RandomForestRegressor(**params, n_jobs=-1, oob_score=True)
             
         elif model_name == "GBDT":
-            # GBDT 优化：更小学习率 + 更多树 + 正则化
+            # GBDT tuning: smaller LR, more trees, and regularization.
             params = {
                 'n_estimators': trial.suggest_int("n_estimators", 200, 1500, step=100),
-                'max_depth': trial.suggest_int("max_depth", 3, 10),      # 浅树防止过拟合
-                'learning_rate': trial.suggest_float("lr", 0.005, 0.1, log=True),  # 更小学习率
+                'max_depth': trial.suggest_int("max_depth", 3, 10),      # Shallow trees reduce overfitting.
+                'learning_rate': trial.suggest_float("lr", 0.005, 0.1, log=True),  # Smaller learning rate.
                 'subsample': trial.suggest_float("subsample", 0.5, 0.9),
                 'min_samples_split': trial.suggest_int("min_samples_split", 5, 30),
                 'min_samples_leaf': trial.suggest_int("min_samples_leaf", 3, 20),
@@ -120,13 +120,13 @@ def objective_single_target(model_name, X_train, y_train, valid_ratio, random_st
             regr = GradientBoostingRegressor(**params)
             
         elif model_name == "NN":
-            # NN 优化：更多 epoch + 更强正则化
+            # NN tuning: more epochs with stronger regularization.
             dim = trial.suggest_categorical("dim", [64, 128, 256, 512])
             n_mid = trial.suggest_int("n_mid", 2, 5)
             activation = trial.suggest_categorical("activation", ["tanh", "relu"])
-            lr = trial.suggest_float("lr", 5e-5, 5e-3, log=True)  # 更小学习率范围
-            epoch = trial.suggest_int("epoch", 1000, 5000, step=500)  # 更多 epoch
-            alpha = trial.suggest_float("alpha", 1e-4, 1e-1, log=True)  # 更强 L2 正则化
+            lr = trial.suggest_float("lr", 5e-5, 5e-3, log=True)  # Smaller LR range.
+            epoch = trial.suggest_int("epoch", 1000, 5000, step=500)  # More epochs.
+            alpha = trial.suggest_float("alpha", 1e-4, 1e-1, log=True)  # Stronger L2 regularization.
             
             mlp = MLPRegressor(
                 hidden_layer_sizes=tuple([dim for _ in range(n_mid)]),
@@ -136,8 +136,8 @@ def objective_single_target(model_name, X_train, y_train, valid_ratio, random_st
                 max_iter=epoch,
                 alpha=alpha,
                 early_stopping=True,
-                validation_fraction=0.15,  # 增加验证集比例
-                n_iter_no_change=50,       # 增加耐心值
+                validation_fraction=0.15,  # Increase validation split.
+                n_iter_no_change=50,       # Increase patience.
                 random_state=random_state
             )
             regr = Pipeline([
@@ -164,7 +164,7 @@ def objective_single_target(model_name, X_train, y_train, valid_ratio, random_st
 
 
 def build_optimized_model(model_name, best_params, random_state=42):
-    """根据最优超参数构建模型"""
+    """Build a model from the best hyperparameters."""
     if model_name == "RF":
         model = RandomForestRegressor(
             n_estimators=best_params["n_estimators"],

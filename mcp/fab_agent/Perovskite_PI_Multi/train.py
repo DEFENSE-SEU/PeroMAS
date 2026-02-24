@@ -15,7 +15,7 @@ from sklearn.pipeline import Pipeline
 import optuna
 
 def metrics(Y_train_real, Y_train_pred, Y_test_real, Y_test_pred, target_names=None):
-    # 使用 np.sqrt 配合 mse 计算 RMSE，这是兼容 Sklearn 各个版本最稳妥的方法
+    # Use np.sqrt with MSE to compute RMSE (version-safe across sklearn).
     R2_train = r2_score(Y_train_real, Y_train_pred)
     RMSE_train = np.sqrt(mean_squared_error(Y_train_real, Y_train_pred))
     MAE_train = mean_absolute_error(Y_train_real, Y_train_pred)
@@ -60,7 +60,7 @@ def makemodel(model_name, max_depth, max_leaf_nodes, n_estimators, min_samples_s
                                      min_samples_split = min_samples_split,
                                      min_samples_leaf = min_samples_leaf,
                                      random_state=0)
-        # GBDT 必须包装才能预测多目标
+        # GBDT must be wrapped for multi-target prediction.
         model = MultiOutputRegressor(gbdt_inner) 
 
     elif model_name == "NN":
@@ -71,7 +71,7 @@ def makemodel(model_name, max_depth, max_leaf_nodes, n_estimators, min_samples_s
                              learning_rate_init = lr,
                              max_iter = epoch,
                              random_state=0)
-        # 使用 Pipeline 包装 StandardScaler + MLPRegressor，避免梯度爆炸
+        # Pipeline wrapper to stabilize training.
         model = Pipeline([
             ('scaler', StandardScaler()),
             ('mlp', mlp)
@@ -84,7 +84,7 @@ def objective_variable(model_name, X_train, y_train, valid_ratio_in_train):
     
     def objective(trial):
         if model_name == "RF":
-            # 扩展超参数搜索范围
+            # Expand hyperparameter search space.
             n_estimators = trial.suggest_int("n_estimators", 50, 500, step=50)
             max_depth = trial.suggest_int("max_depth", 5, 50)
             min_samples_split = trial.suggest_int("min_samples_split", 2, 20)
@@ -102,7 +102,7 @@ def objective_variable(model_name, X_train, y_train, valid_ratio_in_train):
             )
             
         elif model_name == "GBDT":
-            # 扩展 GBDT 超参数
+            # Expand GBDT hyperparameters.
             n_estimators = trial.suggest_int("n_estimators", 50, 500, step=50)
             max_depth = trial.suggest_int("max_depth", 3, 15)
             min_samples_split = trial.suggest_int("min_samples_split", 2, 20)
@@ -122,16 +122,16 @@ def objective_variable(model_name, X_train, y_train, valid_ratio_in_train):
             regr = MultiOutputRegressor(gbdt_inner)
             
         elif model_name == "NN":
-            # 优化 NN 超参数范围
+            # Tune NN hyperparameter ranges.
             dim = trial.suggest_categorical("dim", [32, 64, 128, 256, 512])
             n_mid = trial.suggest_int("n_mid", 2, 6)
             activation = trial.suggest_categorical("activation", ["tanh", "relu"])
-            solver = trial.suggest_categorical("solver", ["adam"])  # adam 更稳定
+            solver = trial.suggest_categorical("solver", ["adam"])  # Adam is more stable.
             lr = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
             epoch = trial.suggest_int("epoch", 200, 2000, step=100)
-            alpha = trial.suggest_float("alpha", 1e-5, 1e-2, log=True)  # L2 正则化
+            alpha = trial.suggest_float("alpha", 1e-5, 1e-2, log=True)  # L2 regularization.
             
-            # 使用 Pipeline 包装 StandardScaler + MLPRegressor，避免梯度爆炸
+            # Pipeline wrapper to stabilize training.
             mlp = MLPRegressor(
                 hidden_layer_sizes=tuple([dim for _ in range(n_mid)]),
                 activation=activation,
@@ -151,14 +151,14 @@ def objective_variable(model_name, X_train, y_train, valid_ratio_in_train):
             
         X_tr, X_val, y_tr, y_val = train_test_split(X_train, y_train, test_size=valid_ratio_in_train, random_state=0)
         
-        # 捕获训练过程中的异常（如梯度爆炸），返回大值让 Optuna 跳过这个不稳定的超参数组合
+        # Catch training errors and return a large value to skip unstable configs.
         try:
             regr.fit(X_tr, y_tr)
             y_val_pred = regr.predict(X_val)
             mse = mean_squared_error(y_val, y_val_pred)
             return mse
         except (ValueError, RuntimeWarning) as e:
-            # 返回一个很大的值，表示这个超参数组合不稳定
+            # Return a large value to indicate an unstable configuration.
             print(f"  Trial failed with error: {e}, returning large value")
             return 1e10
 

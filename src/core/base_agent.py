@@ -323,14 +323,14 @@ class BaseAgent(ABC):
 
                 self.logger.info(f"Executing tool: {tool_name}")
                 
-                # === 工具调用可视化 (去重逻辑) ===
+                # Tool call visualization with de-duplication.
                 if tool_name == _last_tool_name:
                     _consecutive_count += 1
-                    # 更新同一行显示调用次数
+                    # Update the same line with the call count.
                     print(f"\r   🔄 [{self.name}] {tool_name} called {_consecutive_count}x (consecutive)", end="", flush=True)
                 else:
                     if _last_tool_name is not None and _consecutive_count > 1:
-                        print()  # 换行结束上一个工具的计数显示
+                        print()  # End the previous tool's counter line.
                     _consecutive_count = 1
                     _last_tool_name = tool_name
                     print(f"\n🔧 [{self.name}] Calling Tool: {tool_name}")
@@ -355,7 +355,7 @@ class BaseAgent(ABC):
                     "result": result_str,
                 })
                 
-                # === 工具结果可视化 (仅首次调用显示详细结果) ===
+                # Tool result visualization (details only for first call).
                 if _consecutive_count == 1:
                     result_preview = result_str[:150] if len(result_str) > 150 else result_str
                     print(f"   📤 Result: {result_preview}{'...' if len(result_str) > 150 else ''}")

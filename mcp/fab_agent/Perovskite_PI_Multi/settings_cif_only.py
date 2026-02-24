@@ -1,38 +1,38 @@
 # settings_cif_only.py
-# 训练配置：仅使用 CIF 晶体结构作为输入特征
-# 创建时间: 2026/01/23
+# Training config: use CIF crystal structure features as inputs.
+# Created: 2026/01/23
 
 # ============================================================
-# 数据输入
+# Data input
 # ============================================================
 raw_file_name = "data/raw/full_dataset.csv"
 run_mode = "Train"  # "Hyperopt", "Train", "Predict", "Interpret"
 calc_shap = False
 
-# 预测目标 (多输出回归)
-# 注意: stability_t80 数据缺失严重(仅39/711有效)，建议移除
+# Prediction targets (multi-output regression)
+# Note: stability_t80 has severe missing data (only 39/711 valid); consider removing.
 target = [
-    "pce",                  # 光电转换效率
-    "dft_band_gap",         # DFT计算的带隙
-    "energy_above_hull",    # 热力学稳定性
-    "voc",                  # 开路电压
-    "jsc",                  # 短路电流密度
-    "ff"                    # 填充因子
-    # "stability_t80",      # T80稳定性(数据太少，暂不训练)
+    "pce",                  # Power conversion efficiency
+    "dft_band_gap",         # DFT band gap
+    "energy_above_hull",    # Thermodynamic stability
+    "voc",                  # Open-circuit voltage
+    "jsc",                  # Short-circuit current density
+    "ff"                    # Fill factor
+    # "stability_t80",      # T80 stability (too little data to train)
 ]
 
 # ============================================================
-# 特征模式
+# Feature mode
 # ============================================================
-use_X = "cif_only"  # 仅使用 CIF 结构特征
+use_X = "cif_only"  # Use CIF-only structure features
 
 num_list = []
 fill_way = "zero"                    # "dummy", "zero", "median"
-per_elem_prop = "oliynyk"            # 对于 cif_only 模式不使用，但保留兼容性
+per_elem_prop = "oliynyk"            # Unused in cif_only, kept for compatibility
 split_way = 1                        # 0:onehot, 1:multihot_1
 
 # ============================================================
-# 训练参数
+# Training parameters
 # ============================================================
 random_state = 42
 test_ratio = 0.2
@@ -43,19 +43,19 @@ n_trials = 100
 storage_name = f"data/model/hyperopt/{use_X}_optuna_study"
 
 # ============================================================
-# 模型参数
+# Model parameters
 # ============================================================
 model_name = "RF"  # "RF", "GBDT", "NN"
 
-# Random Forest / GBDT 参数
+# Random Forest / GBDT parameters
 n_estimators = 300
 max_depth = None
 max_leaf_nodes = None
 min_samples_split = 2
 min_samples_leaf = 1
 
-# Neural Network 参数
-dim = 64           # CIF特征只有9维，网络可以小一些
+# Neural Network parameters
+dim = 64           # CIF features are 9-D, so a smaller network is fine
 n_mid = 2
 activation = "relu"
 solver = "adam"
@@ -63,7 +63,7 @@ lr = 1e-3
 epoch = 500
 
 # ============================================================
-# 保存名称
+# Save names
 # ============================================================
 save_name = f"{use_X}_{run_mode}_{model_name}_sp{str(split_way)}_{per_elem_prop}_{fill_way}_r{str(random_state)}"
 model_save_name = f"model_{use_X}_{model_name}_sp{str(split_way)}_{per_elem_prop}_{fill_way}_r{str(random_state)}"

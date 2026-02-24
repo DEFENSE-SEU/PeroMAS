@@ -10,12 +10,12 @@ from revised_CBFV import composition
 import statistics
 from scipy.sparse import csr_matrix, save_npz, load_npz
 
-# 引入 pymatgen 用于解析 CIF
+# Import pymatgen for CIF parsing.
 from pymatgen.io.cif import CifParser
 from pymatgen.core.structure import Structure
 
 # -----------------------------------------------------------
-# 1. 文本/分类特征处理
+# 1. Text/categorical feature processing
 # -----------------------------------------------------------
 def onehot_vector_table(x_name, df):
     vector_table_data = pd.get_dummies(df[x_name]).add_prefix(x_name+"_")
@@ -27,7 +27,7 @@ def multihot_vector_table_1(x_name, df):
     
     start = 0
     small_box = []
-    # 注意：在新版 Pandas/Numpy 中，reshape(-1) 依然有效
+    # Note: reshape(-1) remains valid in newer pandas/numpy.
     single_split_reshape = np.array(single_split).transpose().reshape(-1,) 
     for j in range(np.shape(single_split)[1]):
         stop = start + len(df)
@@ -42,10 +42,10 @@ def multihot_vector_table_1(x_name, df):
     sum_box = sum_box.add_prefix(x_name + "_")
     return sum_box
 
-# ... (multihot_vector_table_2 和 3 如果需要用到，逻辑同上，主要是 concat 替代 append) ...
+# ... (multihot_vector_table_2 and 3 follow the same logic, using concat instead of append) ...
 
 # -----------------------------------------------------------
-# 2. 数值特征处理
+# 2. Numerical feature processing
 # -----------------------------------------------------------
 def numerical_sum_table(num_name, df, fill_way = "zero"):
     delimit = df[num_name].astype(str).str.split("|")
@@ -55,7 +55,7 @@ def numerical_sum_table(num_name, df, fill_way = "zero"):
         box = []
         for j in range(delimit.shape[1]):
             try:
-                # 修改：使用 python 原生 float，兼容性更好
+                # Use native float for better compatibility.
                 box.append(float(delimit[j][i]))
             except:
                 box.append(0)
@@ -75,7 +75,7 @@ def numerical_sum_table(num_name, df, fill_way = "zero"):
     return numerical_table_data
 
 # -----------------------------------------------------------
-# 3. 化学成分特征 (CBFV)
+# 3. Composition features (CBFV)
 # -----------------------------------------------------------
 def cbfv_table(x_name, df, elem_prop="oliynyk"):
     corr = pd.read_csv("revised_CBFV/Perovskite_a_ion_correspond_arr.csv") 
@@ -98,7 +98,7 @@ def cbfv_table(x_name, df, elem_prop="oliynyk"):
                 X, y, formulae, skipped = composition.generate_features(df_temp, elem_prop = elem_prop)
                 cbfv.append(np.array(X.fillna(0))[0])
             except:
-                # 针对不同 elem_prop 的维度补零
+                # Pad zeros based on elem_prop dimension.
                 if elem_prop == "oliynyk":
                     cbfv.append(np.zeros(264))
                 elif elem_prop == "magpie":
@@ -114,7 +114,7 @@ def cbfv_table(x_name, df, elem_prop="oliynyk"):
     return table
 
 # -----------------------------------------------------------
-# 4. CIF 晶体结构特征处理 (适配 Pymatgen)
+# 4. CIF structure features (pymatgen)
 # -----------------------------------------------------------
 def cif_vector_table(x_name, df):
     print(f"Processing CIF data column '{x_name}'...")
@@ -125,12 +125,12 @@ def cif_vector_table(x_name, df):
 
     for i in range(len(df)):
         cif_str = str(df[x_name].iloc[i])
-        # 修复 CSV 可能引入的转义换行符
+        # Fix escaped newlines introduced by CSV.
         if "\\n" in cif_str:
             cif_str = cif_str.replace("\\n", "\n")
             
         try:
-            # 尝试解析
+            # Try to parse.
             parser = CifParser.from_string(cif_str)
             structure = parser.get_structures()[0]
             
@@ -148,7 +148,7 @@ def cif_vector_table(x_name, df):
             cif_features.append(list(feats.values()))
             
         except Exception:
-            # 备用方案：如果 CifParser 失败，有时 Structure.from_str 更健壮
+            # Fallback: Structure.from_str can be more robust if CifParser fails.
             try:
                 structure = Structure.from_str(cif_str, fmt="cif")
                 feats = {
@@ -170,10 +170,10 @@ def cif_vector_table(x_name, df):
 
 
 # -----------------------------------------------------------
-# 5. 保存与加载工具
+# 5. Save/load helpers
 # -----------------------------------------------------------
 def vec2csr(vec, csr_file_name, columns_file_name):
-    # 自动创建目录
+    # Auto-create directories.
     if os.path.dirname(csr_file_name):
         os.makedirs(os.path.dirname(csr_file_name), exist_ok=True)
     
@@ -192,13 +192,13 @@ def csr2vec(csr_file_name, columns_file_name):
     return vec
 
 # -----------------------------------------------------------
-# 6. 主特征生成入口
+# 6. Main feature generation entry
 # -----------------------------------------------------------
 def file2vector(raw_file_name, split_way, per_elem_prop, fill_way, num_list, use_X):
     df = pd.read_csv(raw_file_name)
     x_list = []
     
-    # 模式: "comp_only" - 仅使用 Composition (分子式)
+    # Mode: "comp_only" - composition only
     if use_X == "comp_only":
         print("Feature Mode: Composition Only (CBFV)")
         if "composition" in df.columns:
@@ -208,7 +208,7 @@ def file2vector(raw_file_name, split_way, per_elem_prop, fill_way, num_list, use
         else:
             print("Error: 'composition' column not found!")
             
-    # 模式: "cif_only" - 仅使用 CIF 结构特征
+    # Mode: "cif_only" - CIF features only
     elif use_X == "cif_only":
         print("Feature Mode: CIF Structure Only")
         if "cif" in df.columns:
@@ -218,7 +218,7 @@ def file2vector(raw_file_name, split_way, per_elem_prop, fill_way, num_list, use
         else:
             print("Error: 'cif' column not found!")
     
-    # 模式: "cif_comp" - 同时使用 CIF 和 Composition
+    # Mode: "cif_comp" - CIF + composition
     elif use_X == "cif_comp":
         print("Feature Mode: CIF + Composition")
         if "composition" in df.columns:
@@ -230,7 +230,7 @@ def file2vector(raw_file_name, split_way, per_elem_prop, fill_way, num_list, use
             x_list.append(x_cif)
             print(f"  -> CIF features shape: {x_cif.shape}")
             
-    # 模式: 原有模式 (all, per, mat)
+    # Mode: legacy (all, per, mat)
     else:
         if use_X == "all":
             df = df.iloc[:,0:248] 

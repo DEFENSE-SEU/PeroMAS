@@ -472,7 +472,7 @@ class DesignAgent(BaseAgent):
 
                 self.logger.info(f"Executing tool: {tool_name}")
                 
-                # === 工具调用可视化 ===
+                # Tool call visualization.
                 is_server_tool = self._server_tools.has_tool(tool_name)
                 is_local_tool = tool_name in self.LOCAL_TOOLS
                 if is_local_tool:
@@ -504,14 +504,14 @@ class DesignAgent(BaseAgent):
                     "result": result_str,
                 })
 
-                # === 工具结果可视化 ===
+                # Tool result visualization.
                 try:
                     result_data = json.loads(result_str)
                     status = result_data.get("status", "unknown")
                     mode = result_data.get("_mode", "unknown")
                     print(f"   📤 Result: status={status}, mode={mode}")
                     
-                    # 打印关键字段（帮助调试）
+                    # Print key fields (debugging).
                     if tool_name == "check_synthesizability":
                         synth = result_data.get("synthesizable", result_data.get("result", "N/A"))
                         conf = result_data.get("confidence", "N/A")
@@ -522,7 +522,7 @@ class DesignAgent(BaseAgent):
                         protocol = result_data.get("synthesis_protocol", "")
                         print(f"      └─ method={method}, confidence={conf}")
                         if protocol:
-                            # 显示完整的合成流程（每80字符换行）
+                            # Print full synthesis protocol (wrap every ~80 chars).
                             print(f"      ┌─ Synthesis Protocol:")
                             words = protocol.split()
                             line = "      │  "
@@ -742,39 +742,39 @@ Only include fields relevant to what you actually did. Don't include empty secti
         pce_match = re.search(r'pce[^\d]*(\d+(?:\.\d+)?)\s*%?', combined, re.I)
         if pce_match:
             requirements["target_pce"] = float(pce_match.group(1))
-        elif "高效" in combined or "high efficiency" in combined:
+        elif "high efficiency" in combined:
             requirements["target_pce"] = 25.0
         
         # Extract Voc target
         voc_match = re.search(r'voc[^\d]*(\d+(?:\.\d+)?)\s*v', combined, re.I)
         if voc_match:
             requirements["target_voc"] = float(voc_match.group(1))
-        elif "开路电压" in combined:
+        elif "open-circuit voltage" in combined or "open circuit voltage" in combined:
             voc_match2 = re.search(r'(\d+(?:\.\d+)?)\s*v', combined, re.I)
             if voc_match2:
                 requirements["target_voc"] = float(voc_match2.group(1))
         
         # Extract bandgap target
-        bg_match = re.search(r'带隙[^\d]*(\d+(?:\.\d+)?)[^\d]*(\d+(?:\.\d+)?)?\s*ev', combined, re.I)
+        bg_match = re.search(r'band\s*gap[^\d]*(\d+(?:\.\d+)?)[^\d]*(\d+(?:\.\d+)?)?\s*ev', combined, re.I)
         if bg_match:
             requirements["target_bandgap"] = float(bg_match.group(1))
-        elif "宽带隙" in combined:
+        elif "wide bandgap" in combined or "wide-bandgap" in combined:
             requirements["target_bandgap"] = 1.75
-        elif "窄带隙" in combined:
+        elif "narrow bandgap" in combined or "narrow-bandgap" in combined:
             requirements["target_bandgap"] = 1.3
         
         # Detect composition constraints
-        if "无铅" in combined or "lead-free" in combined:
+        if "lead-free" in combined:
             requirements["composition_constraints"] = "lead-free"
-            requirements["special_requirements"].append("无铅钙钛矿")
-        if "锡基" in combined or "sn-based" in combined:
+            requirements["special_requirements"].append("lead-free perovskite")
+        if "sn-based" in combined:
             requirements["composition_constraints"] = "Sn-based"
-            requirements["special_requirements"].append("锡基钙钛矿")
-        if "cs掺杂" in combined or "cs-doped" in combined:
-            requirements["special_requirements"].append("Cs掺杂")
+            requirements["special_requirements"].append("Sn-based perovskite")
+        if "cs-doped" in combined or "cs doped" in combined:
+            requirements["special_requirements"].append("Cs-doped")
         
         # Detect stability requirements
-        if "稳定" in combined or "stability" in combined:
+        if "stability" in combined or "stable" in combined:
             requirements["stability_requirement"] = "high"
         
         # Remove None values for cleaner output
@@ -883,7 +883,7 @@ Only include fields relevant to what you actually did. Don't include empty secti
                     params["process"]["method_details"] = method
                 elif isinstance(method, str):
                     params["process"]["method"] = method
-                # 捕获完整的合成流程文本
+                # Capture full synthesis protocol text.
                 if "synthesis_protocol" in result_data:
                     params["process"]["synthesis_protocol"] = result_data["synthesis_protocol"]
                 params["process"]["method_raw"] = result_data

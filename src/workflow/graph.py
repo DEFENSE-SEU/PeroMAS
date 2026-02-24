@@ -95,11 +95,12 @@ class ResearchWorkflow:
     ) -> None:
         self.settings = settings
         self.max_iterations = max_iterations
-        # 允许 mcp_configs 为空，保证鲁棒性
+        # Allow empty MCP configs for robustness.
         self.mcp_configs = mcp_configs or {}
-        # DesignAgent 工具模式: "mock" LLM辅助生成(全自动), "interactive" 与服务器交互(手动)
+        # DesignAgent tool mode: "mock" (LLM-generated, automatic) or
+        # "interactive" (manual via server).
         self.design_tool_mode = design_tool_mode
-        # DataAgent 论文保存目录
+        # DataAgent papers output directory.
         self.papers_dir = papers_dir
         
         self.agents: Dict[str, Any] = {}

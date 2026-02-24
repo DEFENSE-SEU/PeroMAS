@@ -345,7 +345,7 @@ class FabAgent(BaseAgent):
         cif_file = arguments.get("cif_file")
         targets = arguments.get("targets")
         
-        # 至少需要一种输入
+        # At least one input is required.
         if not composition and not cif_content and not cif_file:
             return {
                 "status": "error",
@@ -360,10 +360,10 @@ class FabAgent(BaseAgent):
                 targets=targets
             )
             
-            # 添加状态信息
+            # Add status info.
             if "predictions" in result:
                 result["status"] = "success"
-                # 打印简要预测结果
+                # Print a brief prediction summary.
                 print(f"\n   📊 Prediction Results for: {result.get('input', 'unknown')}")
                 for target, pred in result["predictions"].items():
                     if isinstance(pred, dict) and "value" in pred:
@@ -425,7 +425,7 @@ class FabAgent(BaseAgent):
         y_metric = arguments.get("y_metric", "pce")
         title = arguments.get("title", "Property Trend")
         
-        # 添加 query_id 前缀到标题
+        # Prefix title with query_id.
         if self._current_query_id:
             title = f"{self._current_query_id}_{title}"
         
@@ -471,7 +471,7 @@ class FabAgent(BaseAgent):
         metrics = arguments.get("metrics")
         title = arguments.get("title", "Materials Comparison")
         
-        # 添加 query_id 前缀到标题
+        # Prefix title with query_id.
         if self._current_query_id:
             title = f"{self._current_query_id}_{title}"
         
@@ -571,14 +571,14 @@ class FabAgent(BaseAgent):
 
                 self.logger.info(f"Executing tool: {tool_name}")
                 
-                # === 工具调用可视化 (去重逻辑) ===
+                # Tool call visualization with de-duplication.
                 tool_type = "📍 Local" if tool_name in local_tool_names else "🌐 MCP"
                 if tool_name == _last_tool_name:
                     _consecutive_count += 1
                     print(f"\r   🔄 [FabAgent] {tool_name} called {_consecutive_count}x (consecutive)", end="", flush=True)
                 else:
                     if _last_tool_name is not None and _consecutive_count > 1:
-                        print()  # 换行
+                        print()  # End the previous tool's counter line.
                     _consecutive_count = 1
                     _last_tool_name = tool_name
                     print(f"\n🔧 [FabAgent] Calling {tool_type} Tool: {tool_name}")
@@ -606,7 +606,7 @@ class FabAgent(BaseAgent):
                     "result": result_str,
                 })
                 
-                # === 工具结果可视化 (仅首次调用显示详细结果) ===
+                # Tool result visualization (details only for first call).
                 if _consecutive_count == 1:
                     result_preview = result_str[:150] if len(result_str) > 150 else result_str
                     print(f"   📤 Result: {result_preview}{'...' if len(result_str) > 150 else ''}")

@@ -32,7 +32,7 @@ from core.config import MCPConfig, MCPServerConfig
 
 def create_no_proxy_httpx_client(**kwargs):
     """Create an httpx AsyncClient without proxy to avoid SSE connection issues."""
-    # 禁用代理，避免 SSE 长连接通过代理时出现超时问题
+    # Disable proxy to avoid SSE long-connection timeouts.
     return httpx.AsyncClient(proxy=None, **kwargs)
 
 
@@ -144,13 +144,13 @@ class MCPToolRegistry:
         try:
             self.logger.info(f"Connecting to MCP server '{server_name}'...")
 
-            # 1. 判断连接类型：如果是 URL 则走 SSE，否则走 Stdio
+            # 1) Choose transport: SSE for URL, otherwise stdio.
             if hasattr(server_config, "url") and server_config.url:
-                # === SSE 连接逻辑 ===
+                # === SSE connection ===
                 self.logger.info(f"Using SSE transport for {server_name}")
-                # sse_client 返回 (read_stream, write_stream)
-                # 增加超时时间：timeout=30秒用于HTTP操作，sse_read_timeout=600秒用于SSE读取
-                # 使用无代理的 httpx client 避免 SSE 长连接问题
+                # sse_client returns (read_stream, write_stream)
+                # Increase timeouts: timeout=30s for HTTP, sse_read_timeout=600s for SSE read.
+                # Use a no-proxy httpx client to avoid SSE long-connection issues.
                 transport = await self._exit_stack.enter_async_context(
                     sse_client(
                         server_config.url, 
@@ -160,7 +160,7 @@ class MCPToolRegistry:
                     )
                 )
             elif server_config.command:
-                # === Stdio 连接逻辑 (原有的代码) ===
+                # === stdio connection (legacy path) ===
                 server_params = StdioServerParameters(
                     command=server_config.command,
                     args=server_config.args,
@@ -174,7 +174,7 @@ class MCPToolRegistry:
 
             read_stream, write_stream = transport
 
-            # 2. 创建并初始化会话 (这部分通用)
+            # 2) Create and initialize session (shared logic).
             session = await self._exit_stack.enter_async_context(
                 ClientSession(read_stream, write_stream)
             )
@@ -368,7 +368,7 @@ if __name__ == "__main__":
         config_data = {
             "matablgpt": {
                 "url": "https://seuyishu-mattablegpt.hf.space/sse",
-                "command": None, # SSE 模式下不需要
+                "command": None, # Not used for SSE mode.
                 "args": []
             }
         }
@@ -378,7 +378,7 @@ if __name__ == "__main__":
             if not registry.is_initialized():
                 print("Failed to initialize MCPToolRegistry.")
                 return
-            # 3. 获取并展示工具
+            # 3) Fetch and display tools.
             print("\n📡 Fetching tools from MaTableGPT...")
             try:
                 tools = await registry.get_tools_schema()
@@ -400,10 +400,10 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"❌ Error during tool discovery: {e}")
 
-            #工具测试
+            # Tool test.
             import json
-            # === 步骤 1: 准备测试数据 (输入) ===
-            # 一个简单的 HTML 表格
+            # Step 1: Prepare test input.
+            # A simple HTML table.
             sample_html = """
             <table border="1">
                 <thead>
@@ -428,7 +428,7 @@ if __name__ == "__main__":
             </table>
             """
 
-            # === 步骤 2: 调用转换工具 (Tool #2) ===
+            # Step 2: Call conversion tool (Tool #2).
             print("\n1️⃣ Converting HTML to TSV...")
             try:
                 tsv_result = await registry.call_tool(
@@ -440,7 +440,7 @@ if __name__ == "__main__":
                     }
                 )
                 print(f"✅ Conversion Result Type: {type(tsv_result)}")
-                # 打印出来看看结构，确认下一步该传什么
+                # Print structure to confirm the next payload.
                 print(f"📦 Payload snippet: {str(tsv_result)[:100]}...") 
 
             except Exception as e:
