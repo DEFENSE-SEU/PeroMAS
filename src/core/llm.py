@@ -111,6 +111,8 @@ class LLMClient:
         self.total_calls = 0
         self.failed_calls = 0
         self.retry_count = 0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
 
         # Create appropriate LLM client based on provider and whether using proxy
         self.llm = self._create_client()
@@ -318,6 +320,12 @@ class LLMClient:
                 else:
                     response = await self.llm.ainvoke(langchain_messages)
 
+                # Track token usage from response metadata
+                usage = getattr(response, "usage_metadata", None)
+                if usage and isinstance(usage, dict):
+                    self.total_input_tokens += usage.get("input_tokens", 0)
+                    self.total_output_tokens += usage.get("output_tokens", 0)
+
                 self.logger.debug(
                     f"LLM response received: content_length={len(response.content) if response.content else 0}, "
                     f"tool_calls={len(response.tool_calls) if hasattr(response, 'tool_calls') and response.tool_calls else 0}"
@@ -404,6 +412,69 @@ class LLMClient:
                 if chunk.content:
                     yield chunk.content
 
+    async def ainvoke_streaming(
+        self,
+        messages: list[dict[str, Any] | BaseMessage],
+        tools: list[dict[str, Any]] | None = None,
+        print_stream: bool = True,
+    ) -> AIMessage:
+        """
+        Invoke LLM with streaming output, returning the full AIMessage.
+
+        Streams text chunks to stdout in real-time for user visibility,
+        while collecting the complete response (including tool_calls) for
+        programmatic use. Falls back to ainvoke on error.
+
+        Args:
+            messages: List of messages.
+            tools: Optional tool schemas.
+            print_stream: Whether to print chunks to stdout.
+
+        Returns:
+            Complete AIMessage (same as ainvoke).
+        """
+        self.total_calls += 1
+        langchain_messages = self._convert_to_messages(messages)
+
+        try:
+            if tools:
+                model = self.llm.bind_tools(tools)
+            else:
+                model = self.llm
+
+            # astream_events gives full AIMessageChunk that can be accumulated
+            collected: AIMessage | None = None
+            async for chunk in model.astream(langchain_messages):
+                # Accumulate chunks into a single AIMessage
+                if collected is None:
+                    collected = chunk
+                else:
+                    collected = collected + chunk  # LangChain supports AIMessageChunk addition
+
+                # Print text content as it arrives
+                if print_stream and chunk.content:
+                    print(chunk.content, end="", flush=True)
+
+            if print_stream:
+                print()  # newline after streaming
+
+            if collected is None:
+                # Fallback: empty response
+                collected = AIMessage(content="")
+
+            # Track token usage
+            usage = getattr(collected, "usage_metadata", None)
+            if usage and isinstance(usage, dict):
+                self.total_input_tokens += usage.get("input_tokens", 0)
+                self.total_output_tokens += usage.get("output_tokens", 0)
+
+            return collected
+
+        except Exception as e:
+            self.logger.warning(f"Streaming failed, falling back to ainvoke: {e}")
+            # Fallback to non-streaming
+            return await self.ainvoke(messages, tools)
+
     def has_tool_calls(self, response: AIMessage) -> bool:
         """
         Check if the response contains tool calls.
@@ -465,7 +536,18 @@ class LLMClient:
             "failed_calls": self.failed_calls,
             "retry_count": self.retry_count,
             "success_rate": (self.total_calls - self.failed_calls) / self.total_calls if self.total_calls > 0 else 0,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
         }
+
+    def reset_statistics(self) -> None:
+        """Reset all statistics counters (useful between experiment runs)."""
+        self.total_calls = 0
+        self.failed_calls = 0
+        self.retry_count = 0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
 
     def print_statistics(self) -> None:
         """Print LLM call statistics."""
@@ -477,6 +559,9 @@ class LLMClient:
         print(f"Failed calls: {stats['failed_calls']}")
         print(f"Retry count: {stats['retry_count']}")
         print(f"Success rate: {stats['success_rate']:.2%}")
+        print(f"Input tokens: {stats['total_input_tokens']:,}")
+        print(f"Output tokens: {stats['total_output_tokens']:,}")
+        print(f"Total tokens: {stats['total_tokens']:,}")
         print("</LLM Service Statistics>\n")
 
     def __repr__(self) -> str:

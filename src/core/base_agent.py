@@ -303,8 +303,10 @@ class BaseAgent(ABC):
             iterations += 1
             self.logger.debug(f"Thinking iteration {iterations}")
 
-            # Invoke LLM
-            response = await self.llm.ainvoke(messages, tools=tools if tools else None)
+            # Invoke LLM (streaming for real-time output)
+            response = await self.llm.ainvoke_streaming(
+                messages, tools=tools if tools else None, print_stream=True,
+            )
 
             # Check for tool calls
             if not self.llm.has_tool_calls(response):

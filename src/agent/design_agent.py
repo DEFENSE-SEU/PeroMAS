@@ -453,7 +453,9 @@ class DesignAgent(BaseAgent):
             iterations += 1
             self.logger.debug(f"Thinking iteration {iterations}")
 
-            response = await self.llm.ainvoke(messages, tools=tools if tools else None)
+            response = await self.llm.ainvoke_streaming(
+                messages, tools=tools if tools else None, print_stream=True,
+            )
 
             if not self.llm.has_tool_calls(response):
                 # No tool calls - this is the final response
